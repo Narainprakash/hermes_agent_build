@@ -123,7 +123,7 @@ def register(ctx):
                 "limit": {"type": "integer", "description": "Max markets to return (default: 10)"}
             }
         }
-    }, handle_drift_bet_search)
+    }, handle_drift_bet_search, is_async=True)
 
     ctx.register_tool("drift_bet_order", "benki_drift", {
         "name": "drift_bet_order",
@@ -141,4 +141,4 @@ def register(ctx):
             },
             "required": ["market_id", "outcome", "amount"]
         }
-    }, handle_drift_bet_order)
+    }, handle_drift_bet_order, is_async=True)

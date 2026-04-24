@@ -154,7 +154,7 @@ def register(ctx):
                 }
             }
         }
-    }, handle_solana_balance)
+    }, handle_solana_balance, is_async=True)
 
     ctx.register_tool("solana_swap", "benki_solana", {
         "name": "solana_swap",
@@ -173,4 +173,4 @@ def register(ctx):
             },
             "required": ["token_in", "token_out", "amount"]
         }
-    }, handle_solana_swap)
+    }, handle_solana_swap, is_async=True)

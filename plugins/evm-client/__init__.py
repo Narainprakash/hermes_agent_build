@@ -143,7 +143,7 @@ def register(ctx):
                 }
             }
         }
-    }, handle_evm_balance)
+    }, handle_evm_balance, is_async=True)
 
     ctx.register_tool("evm_swap", "benki_evm", {
         "name": "evm_swap",
@@ -161,4 +161,4 @@ def register(ctx):
             },
             "required": ["token_in", "token_out", "amount"]
         }
-    }, handle_evm_swap)
+    }, handle_evm_swap, is_async=True)

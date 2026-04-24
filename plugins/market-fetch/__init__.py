@@ -43,7 +43,7 @@ def _fetch_text(url: str, timeout: int = 10) -> str:
 # Tool Handlers
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def handle_get_crypto_prices(params, **kwargs):
+def handle_get_crypto_prices(params, **kwargs):
     """
     Fetch live crypto prices from CoinGecko (free, no API key).
     Returns price in USD, 24h change, market cap, volume.
@@ -88,7 +88,7 @@ async def handle_get_crypto_prices(params, **kwargs):
         return json.dumps({"error": str(e), "url": url})
 
 
-async def handle_get_polymarket_markets(params, **kwargs):
+def handle_get_polymarket_markets(params, **kwargs):
     """
     Fetch active Polymarket prediction markets from the free Gamma API.
     Returns top markets by volume with current odds.
@@ -165,7 +165,7 @@ async def handle_get_polymarket_markets(params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-async def handle_search_news(params, **kwargs):
+def handle_search_news(params, **kwargs):
     """
     Search crypto news headlines using DuckDuckGo Instant Answer API.
     Free, no API key required. Returns topic summaries and related topics.
@@ -198,7 +198,7 @@ async def handle_search_news(params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-async def handle_fetch_url(params, **kwargs):
+def handle_fetch_url(params, **kwargs):
     """
     Fetch any public URL and return its content as text.
     Useful for reading JSON APIs, market data feeds, etc.
@@ -224,7 +224,7 @@ async def handle_fetch_url(params, **kwargs):
         return json.dumps({"error": str(e), "url": url})
 
 
-async def handle_get_fear_greed(params, **kwargs):
+def handle_get_fear_greed(params, **kwargs):
     """
     Fetch the Crypto Fear & Greed Index from alternative.me (free, no key).
     Returns current value, classification, and recent history.

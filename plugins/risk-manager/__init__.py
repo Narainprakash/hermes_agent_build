@@ -304,7 +304,7 @@ def register(ctx):
         }
     }
 
-    ctx.register_tool("risk_check", "benki_risk", risk_check_schema, handle_risk_check)
+    ctx.register_tool("risk_check", "benki_risk", risk_check_schema, handle_risk_check, is_async=True)
 
     # --- Hook: audit ALL tool calls for safety ---
     def on_tool_call(tool_name, params, result):

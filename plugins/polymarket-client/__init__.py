@@ -148,7 +148,7 @@ def register(ctx):
                 "limit": {"type": "integer", "description": "Max markets to return (default: 10)"}
             }
         }
-    }, handle_polymarket_search)
+    }, handle_polymarket_search, is_async=True)
 
     ctx.register_tool("polymarket_order", "benki_polymarket", {
         "name": "polymarket_order",
@@ -167,4 +167,4 @@ def register(ctx):
             },
             "required": ["market_id", "outcome", "amount", "price"]
         }
-    }, handle_polymarket_order)
+    }, handle_polymarket_order, is_async=True)

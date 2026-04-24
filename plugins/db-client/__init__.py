@@ -183,7 +183,7 @@ def register(ctx):
             },
             "required": ["agent", "chain", "action", "market", "amount", "status"]
         }
-    }, handle_log_trade)
+    }, handle_log_trade, is_async=True)
 
     # ── Query Trades ──
     ctx.register_tool("benki_db_query_trades", "benki_db", {
@@ -196,7 +196,7 @@ def register(ctx):
                 "agent": {"type": "string", "description": "Filter by agent: 'trader' or 'predictor'"}
             }
         }
-    }, handle_query_trades)
+    }, handle_query_trades, is_async=True)
 
     # ── Query Daily P&L ──
     ctx.register_tool("benki_db_daily_pnl", "benki_db", {
@@ -208,7 +208,7 @@ def register(ctx):
                 "date": {"type": "string", "description": "Date in YYYY-MM-DD format (default: today)"}
             }
         }
-    }, handle_query_daily_pnl)
+    }, handle_query_daily_pnl, is_async=True)
 
     # ── Log Sentiment Brief ──
     ctx.register_tool("benki_db_log_sentiment", "benki_db", {
@@ -231,4 +231,4 @@ def register(ctx):
             },
             "required": ["brief_text", "overall_sentiment", "confidence"]
         }
-    }, handle_log_sentiment)
+    }, handle_log_sentiment, is_async=True)

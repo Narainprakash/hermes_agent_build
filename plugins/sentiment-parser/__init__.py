@@ -130,7 +130,7 @@ def register(ctx):
                 }
             }
         }
-    }, handle_sentiment_search)
+    }, handle_sentiment_search, is_async=True)
 
     ctx.register_tool("score_sentiment", "benki_sentiment", {
         "name": "score_sentiment",
@@ -162,4 +162,4 @@ def register(ctx):
             },
             "required": ["signals"]
         }
-    }, handle_score_sentiment)
+    }, handle_score_sentiment, is_async=True)
