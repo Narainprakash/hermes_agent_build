@@ -1,0 +1,4 @@
+name: market-fetch
+version: "1.0.0"
+description: "Live market data fetcher — CoinGecko, Polymarket, DuckDuckGo. No API key required."
+author: benki-system

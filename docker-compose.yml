@@ -62,6 +62,8 @@ services:
       - ./plugins/sentiment-parser:/opt/data/plugins/sentiment-parser
       # Plugin: db_client
       - ./plugins/db-client:/opt/data/plugins/db-client
+      # Plugin: market_fetch (live prices + Polymarket, no API key required)
+      - ./plugins/market-fetch:/opt/data/plugins/market-fetch
       # Config overlay
       - ./configs/main/config.yaml:/opt/config.yaml:ro
       # Skills
