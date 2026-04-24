@@ -17,7 +17,7 @@ def _get_config():
     }
 
 
-async def handle_solana_balance(params, **kwargs):
+async def handle_solana_balance(task_id, params, **kwargs):
     """Check Solana wallet balance (SOL or SPL token)."""
     config = _get_config()
     if not config["rpc_url"]:
@@ -76,7 +76,7 @@ async def handle_solana_balance(params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-async def handle_solana_swap(params, **kwargs):
+async def handle_solana_swap(task_id, params, **kwargs):
     """
     Execute a token swap on Solana via Jupiter aggregator.
     In DRY_RUN mode, gets a quote but doesn't broadcast.
