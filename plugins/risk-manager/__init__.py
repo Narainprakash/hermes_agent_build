@@ -142,7 +142,7 @@ def _calculate_kelly(win_prob, win_ratio=2.0, loss_ratio=1.0):
     return kelly
 
 
-async def handle_risk_check(task_id, params, **kwargs):
+async def handle_risk_check(params, **kwargs):
     """
     Check if a trade is allowed under current risk limits.
     

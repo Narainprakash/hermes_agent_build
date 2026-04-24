@@ -13,7 +13,7 @@ import json
 from datetime import datetime, timezone
 
 
-async def handle_sentiment_search(task_id, params, **kwargs):
+async def handle_sentiment_search(params, **kwargs):
     """
     Search for crypto market sentiment data.
     
@@ -58,7 +58,7 @@ async def handle_sentiment_search(task_id, params, **kwargs):
     })
 
 
-async def handle_score_sentiment(task_id, params, **kwargs):
+async def handle_score_sentiment(params, **kwargs):
     """
     Score and structure raw sentiment data into a brief.
     The agent calls this after gathering data to produce a formatted output.

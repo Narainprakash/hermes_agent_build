@@ -19,7 +19,7 @@ def _get_config():
     }
 
 
-async def handle_evm_balance(task_id, params, **kwargs):
+async def handle_evm_balance(params, **kwargs):
     """Check EVM wallet balance for a token."""
     config = _get_config()
     if not config["rpc_url"]:
@@ -73,7 +73,7 @@ async def handle_evm_balance(task_id, params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-async def handle_evm_swap(task_id, params, **kwargs):
+async def handle_evm_swap(params, **kwargs):
     """
     Execute a token swap on Polygon.
     In DRY_RUN mode, simulates the transaction without broadcasting.

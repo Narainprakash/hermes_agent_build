@@ -18,7 +18,7 @@ def _get_config():
     }
 
 
-async def handle_drift_bet_search(task_id, params, **kwargs):
+async def handle_drift_bet_search(params, **kwargs):
     """Search Drift BET for active prediction markets on Solana."""
     config = _get_config()
     if not config["rpc_url"]:
@@ -74,7 +74,7 @@ async def handle_drift_bet_search(task_id, params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-async def handle_drift_bet_order(task_id, params, **kwargs):
+async def handle_drift_bet_order(params, **kwargs):
     """Place a bet on Drift BET. Uses DRY_RUN by default."""
     config = _get_config()
 

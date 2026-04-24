@@ -14,7 +14,7 @@ def _get_db_url():
     return os.environ.get("BENKI_DB_URL", "")
 
 
-async def handle_log_trade(task_id, params, **kwargs):
+async def handle_log_trade(params, **kwargs):
     """Log a trade execution to the database."""
     db_url = _get_db_url()
     if not db_url:
@@ -47,7 +47,7 @@ async def handle_log_trade(task_id, params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-async def handle_query_trades(task_id, params, **kwargs):
+async def handle_query_trades(params, **kwargs):
     """Query recent trades from the database."""
     db_url = _get_db_url()
     if not db_url:
@@ -99,7 +99,7 @@ async def handle_query_trades(task_id, params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-async def handle_query_daily_pnl(task_id, params, **kwargs):
+async def handle_query_daily_pnl(params, **kwargs):
     """Query daily P&L for a given date (defaults to today)."""
     db_url = _get_db_url()
     if not db_url:
@@ -132,7 +132,7 @@ async def handle_query_daily_pnl(task_id, params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-async def handle_log_sentiment(task_id, params, **kwargs):
+async def handle_log_sentiment(params, **kwargs):
     """Log a sentiment brief to the database."""
     db_url = _get_db_url()
     if not db_url:
