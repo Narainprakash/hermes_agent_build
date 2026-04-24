@@ -1,0 +1,5 @@
+name: db-client
+version: "1.0"
+description: "PostgreSQL client for reading/writing trade logs, P&L data, sentiment briefs, and risk audit records."
+requires_env:
+  - BENKI_DB_URL

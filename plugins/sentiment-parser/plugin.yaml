@@ -1,0 +1,3 @@
+name: sentiment-parser
+version: "1.0"
+description: "Market sentiment analysis tool for the orchestrator agent. Searches crypto news and data sources, then produces structured Market Context Briefs."

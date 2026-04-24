@@ -1,0 +1,19 @@
+# Secrets — NEVER commit
+.env
+configs/*/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Docker volumes (local dev)
+pgdata/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

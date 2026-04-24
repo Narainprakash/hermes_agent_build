@@ -1,0 +1,6 @@
+name: drift-bet-client
+version: "1.0"
+description: "Drift BET prediction market client for Solana. Supports market discovery and bet placement with cross-collateral."
+requires_env:
+  - SOLANA_RPC_URL
+  - SOLANA_PRIVATE_KEY

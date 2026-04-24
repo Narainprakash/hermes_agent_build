@@ -1,0 +1,6 @@
+name: evm-client
+version: "1.0"
+description: "Polygon/EVM blockchain client for token swaps and transaction execution via Web3.py."
+requires_env:
+  - POLYGON_RPC_URL
+  - EVM_PRIVATE_KEY

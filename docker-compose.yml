@@ -1,0 +1,186 @@
+###############################################################################
+# Benki Multi-Agent Crypto System — Docker Compose
+# 4 services: PostgreSQL + 3 hermes-agent gateway instances
+###############################################################################
+
+services:
+  # ─── PostgreSQL (trade logs, P&L, risk audit) ───────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: benki-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: benki
+      POSTGRES_USER: benki
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - benki-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U benki"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Benki Main (Orchestrator) ──────────────────────────────────────
+  benki-main:
+    image: ghcr.io/nousresearch/hermes-agent:latest
+    container_name: benki-main
+    restart: unless-stopped
+    command: ["gateway"]
+    env_file:
+      - ./configs/main/.env
+    environment:
+      HERMES_HOME: /opt/data
+      # Enable the Hermes HTTP API so benki-ui can poll /health
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: "0.0.0.0"
+      API_SERVER_PORT: "8642"
+      API_SERVER_KEY: ${API_SERVER_KEY}
+    volumes:
+      - main-data:/opt/data
+      # Plugin: risk_manager (read-only)
+      - ./plugins/risk-manager:/opt/data/plugins/risk-manager:ro
+      # Plugin: sentiment_parser (read-only)
+      - ./plugins/sentiment-parser:/opt/data/plugins/sentiment-parser:ro
+      # Plugin: db_client (read-only)
+      - ./plugins/db-client:/opt/data/plugins/db-client:ro
+      # Config overlay
+      - ./configs/main/config.yaml:/opt/data/config.yaml:ro
+      # Skills
+      - ./skills/main:/opt/data/skills/custom:ro
+    networks:
+      - benki-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  # ─── Benki Trader (DeFi Execution) ──────────────────────────────────
+  benki-trader:
+    image: ghcr.io/nousresearch/hermes-agent:latest
+    container_name: benki-trader
+    restart: unless-stopped
+    command: ["gateway"]
+    env_file:
+      - ./configs/trader/.env
+    environment:
+      HERMES_HOME: /opt/data
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: "0.0.0.0"
+      API_SERVER_PORT: "8642"
+      API_SERVER_KEY: ${API_SERVER_KEY}
+    volumes:
+      - trader-data:/opt/data
+      # Plugins (read-only)
+      - ./plugins/risk-manager:/opt/data/plugins/risk-manager:ro
+      - ./plugins/evm-client:/opt/data/plugins/evm-client:ro
+      - ./plugins/solana-client:/opt/data/plugins/solana-client:ro
+      - ./plugins/db-client:/opt/data/plugins/db-client:ro
+      # Config overlay
+      - ./configs/trader/config.yaml:/opt/data/config.yaml:ro
+      # Skills
+      - ./skills/trader:/opt/data/skills/custom:ro
+    networks:
+      - benki-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2560M
+        reservations:
+          memory: 512M
+
+  # ─── Benki UI (Web Dashboard) ───────────────────────────────────
+  benki-ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: benki-ui
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://benki:${POSTGRES_PASSWORD}@postgres:5432/benki
+      # Must match the API_SERVER_KEY set on the agent services above
+      API_SERVER_KEY: ${API_SERVER_KEY}
+      GATEWAY_PORT: "8642"
+      HEALTH_PATH: /health
+      MAIN_HOST: benki-main
+      TRADER_HOST: benki-trader
+      PREDICTOR_HOST: benki-predictor
+    networks:
+      - benki-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+  # ─── Benki Predictor (Prediction Markets) ───────────────────────────
+  benki-predictor:
+    image: ghcr.io/nousresearch/hermes-agent:latest
+    container_name: benki-predictor
+    restart: unless-stopped
+    command: ["gateway"]
+    env_file:
+      - ./configs/predictor/.env
+    environment:
+      HERMES_HOME: /opt/data
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: "0.0.0.0"
+      API_SERVER_PORT: "8642"
+      API_SERVER_KEY: ${API_SERVER_KEY}
+    volumes:
+      - predictor-data:/opt/data
+      # Plugins (read-only)
+      - ./plugins/risk-manager:/opt/data/plugins/risk-manager:ro
+      - ./plugins/evm-client:/opt/data/plugins/evm-client:ro
+      - ./plugins/solana-client:/opt/data/plugins/solana-client:ro
+      - ./plugins/polymarket-client:/opt/data/plugins/polymarket-client:ro
+      - ./plugins/drift-bet-client:/opt/data/plugins/drift-bet-client:ro
+      - ./plugins/db-client:/opt/data/plugins/db-client:ro
+      # Config overlay
+      - ./configs/predictor/config.yaml:/opt/data/config.yaml:ro
+      # Skills
+      - ./skills/predictor:/opt/data/skills/custom:ro
+    networks:
+      - benki-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2560M
+        reservations:
+          memory: 512M
+
+volumes:
+  pgdata:
+  main-data:
+  trader-data:
+  predictor-data:
+
+networks:
+  benki-net:
+    driver: bridge

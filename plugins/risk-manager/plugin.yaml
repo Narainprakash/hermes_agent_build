@@ -1,0 +1,5 @@
+name: risk-manager
+version: "1.0"
+description: "Hardcoded 10% daily drawdown circuit breaker with Kelly Criterion position sizing. All trade requests are logged to an immutable audit trail."
+requires_env:
+  - BENKI_DB_URL
