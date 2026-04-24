@@ -14,7 +14,7 @@ def _get_db_url():
     return os.environ.get("BENKI_DB_URL", "")
 
 
-async def handle_log_trade(params):
+async def handle_log_trade(params, **kwargs):
     """Log a trade execution to the database."""
     db_url = _get_db_url()
     if not db_url:
@@ -47,7 +47,7 @@ async def handle_log_trade(params):
         return json.dumps({"error": str(e)})
 
 
-async def handle_query_trades(params):
+async def handle_query_trades(params, **kwargs):
     """Query recent trades from the database."""
     db_url = _get_db_url()
     if not db_url:
@@ -99,7 +99,7 @@ async def handle_query_trades(params):
         return json.dumps({"error": str(e)})
 
 
-async def handle_query_daily_pnl(params):
+async def handle_query_daily_pnl(params, **kwargs):
     """Query daily P&L for a given date (defaults to today)."""
     db_url = _get_db_url()
     if not db_url:
@@ -132,7 +132,7 @@ async def handle_query_daily_pnl(params):
         return json.dumps({"error": str(e)})
 
 
-async def handle_log_sentiment(params):
+async def handle_log_sentiment(params, **kwargs):
     """Log a sentiment brief to the database."""
     db_url = _get_db_url()
     if not db_url:
@@ -163,7 +163,7 @@ def register(ctx):
     """Register database tools with Hermes."""
 
     # ── Log Trade ──
-    ctx.register_tool("benki_db_log_trade", {
+    ctx.register_tool("benki_db_log_trade", "benki_db", {
         "name": "benki_db_log_trade",
         "description": "Log a trade execution to the Benki PostgreSQL database.",
         "parameters": {
@@ -186,7 +186,7 @@ def register(ctx):
     }, handle_log_trade)
 
     # ── Query Trades ──
-    ctx.register_tool("benki_db_query_trades", {
+    ctx.register_tool("benki_db_query_trades", "benki_db", {
         "name": "benki_db_query_trades",
         "description": "Query recent trades from the database. Optionally filter by agent.",
         "parameters": {
@@ -199,7 +199,7 @@ def register(ctx):
     }, handle_query_trades)
 
     # ── Query Daily P&L ──
-    ctx.register_tool("benki_db_daily_pnl", {
+    ctx.register_tool("benki_db_daily_pnl", "benki_db", {
         "name": "benki_db_daily_pnl",
         "description": "Query daily P&L, drawdown, and circuit breaker status. Defaults to today.",
         "parameters": {
@@ -211,7 +211,7 @@ def register(ctx):
     }, handle_query_daily_pnl)
 
     # ── Log Sentiment Brief ──
-    ctx.register_tool("benki_db_log_sentiment", {
+    ctx.register_tool("benki_db_log_sentiment", "benki_db", {
         "name": "benki_db_log_sentiment",
         "description": "Log a Market Context Brief / sentiment analysis to the database.",
         "parameters": {

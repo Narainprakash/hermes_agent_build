@@ -17,7 +17,7 @@ def _get_config():
     }
 
 
-async def handle_solana_balance(params):
+async def handle_solana_balance(params, **kwargs):
     """Check Solana wallet balance (SOL or SPL token)."""
     config = _get_config()
     if not config["rpc_url"]:
@@ -76,7 +76,7 @@ async def handle_solana_balance(params):
         return json.dumps({"error": str(e)})
 
 
-async def handle_solana_swap(params):
+async def handle_solana_swap(params, **kwargs):
     """
     Execute a token swap on Solana via Jupiter aggregator.
     In DRY_RUN mode, gets a quote but doesn't broadcast.
@@ -142,7 +142,7 @@ async def handle_solana_swap(params):
 def register(ctx):
     """Register Solana tools with Hermes."""
 
-    ctx.register_tool("solana_balance", {
+    ctx.register_tool("solana_balance", "benki_solana", {
         "name": "solana_balance",
         "description": "Check Solana wallet balance for native SOL or any SPL token.",
         "parameters": {
@@ -156,7 +156,7 @@ def register(ctx):
         }
     }, handle_solana_balance)
 
-    ctx.register_tool("solana_swap", {
+    ctx.register_tool("solana_swap", "benki_solana", {
         "name": "solana_swap",
         "description": (
             "Execute a token swap on Solana via Jupiter aggregator. "

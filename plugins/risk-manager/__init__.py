@@ -142,7 +142,7 @@ def _calculate_kelly(win_prob, win_ratio=2.0, loss_ratio=1.0):
     return kelly
 
 
-async def handle_risk_check(params):
+async def handle_risk_check(params, **kwargs):
     """
     Check if a trade is allowed under current risk limits.
     
@@ -304,7 +304,7 @@ def register(ctx):
         }
     }
 
-    ctx.register_tool("risk_check", risk_check_schema, handle_risk_check)
+    ctx.register_tool("risk_check", "benki_risk", risk_check_schema, handle_risk_check)
 
     # --- Hook: audit ALL tool calls for safety ---
     def on_tool_call(tool_name, params, result):

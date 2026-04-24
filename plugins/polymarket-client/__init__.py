@@ -20,7 +20,7 @@ def _get_config():
     }
 
 
-async def handle_polymarket_search(params):
+async def handle_polymarket_search(params, **kwargs):
     """Search Polymarket for active prediction markets."""
     try:
         import aiohttp
@@ -71,7 +71,7 @@ async def handle_polymarket_search(params):
         return json.dumps({"error": str(e)})
 
 
-async def handle_polymarket_order(params):
+async def handle_polymarket_order(params, **kwargs):
     """Place an order on Polymarket. Uses DRY_RUN by default."""
     config = _get_config()
     if not config["api_key"]:
@@ -134,7 +134,7 @@ async def handle_polymarket_order(params):
 def register(ctx):
     """Register Polymarket tools with Hermes."""
 
-    ctx.register_tool("polymarket_search", {
+    ctx.register_tool("polymarket_search", "benki_polymarket", {
         "name": "polymarket_search",
         "description": (
             "Search Polymarket for active prediction markets. "
@@ -150,7 +150,7 @@ def register(ctx):
         }
     }, handle_polymarket_search)
 
-    ctx.register_tool("polymarket_order", {
+    ctx.register_tool("polymarket_order", "benki_polymarket", {
         "name": "polymarket_order",
         "description": (
             "Place an order on Polymarket (Polygon CLOB). "

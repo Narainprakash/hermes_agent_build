@@ -19,7 +19,7 @@ def _get_config():
     }
 
 
-async def handle_evm_balance(params):
+async def handle_evm_balance(params, **kwargs):
     """Check EVM wallet balance for a token."""
     config = _get_config()
     if not config["rpc_url"]:
@@ -73,7 +73,7 @@ async def handle_evm_balance(params):
         return json.dumps({"error": str(e)})
 
 
-async def handle_evm_swap(params):
+async def handle_evm_swap(params, **kwargs):
     """
     Execute a token swap on Polygon.
     In DRY_RUN mode, simulates the transaction without broadcasting.
@@ -131,7 +131,7 @@ async def handle_evm_swap(params):
 def register(ctx):
     """Register EVM tools with Hermes."""
 
-    ctx.register_tool("evm_balance", {
+    ctx.register_tool("evm_balance", "benki_evm", {
         "name": "evm_balance",
         "description": "Check wallet balance for native MATIC or any ERC-20 token on Polygon.",
         "parameters": {
@@ -145,7 +145,7 @@ def register(ctx):
         }
     }, handle_evm_balance)
 
-    ctx.register_tool("evm_swap", {
+    ctx.register_tool("evm_swap", "benki_evm", {
         "name": "evm_swap",
         "description": (
             "Execute a token swap on Polygon. In DRY_RUN mode, simulates without broadcasting. "

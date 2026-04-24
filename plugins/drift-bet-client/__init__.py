@@ -18,7 +18,7 @@ def _get_config():
     }
 
 
-async def handle_drift_bet_search(params):
+async def handle_drift_bet_search(params, **kwargs):
     """Search Drift BET for active prediction markets on Solana."""
     config = _get_config()
     if not config["rpc_url"]:
@@ -74,7 +74,7 @@ async def handle_drift_bet_search(params):
         return json.dumps({"error": str(e)})
 
 
-async def handle_drift_bet_order(params):
+async def handle_drift_bet_order(params, **kwargs):
     """Place a bet on Drift BET. Uses DRY_RUN by default."""
     config = _get_config()
 
@@ -109,7 +109,7 @@ async def handle_drift_bet_order(params):
 def register(ctx):
     """Register Drift BET tools with Hermes."""
 
-    ctx.register_tool("drift_bet_search", {
+    ctx.register_tool("drift_bet_search", "benki_drift", {
         "name": "drift_bet_search",
         "description": (
             "Search Drift BET for active prediction markets on Solana. "
@@ -125,7 +125,7 @@ def register(ctx):
         }
     }, handle_drift_bet_search)
 
-    ctx.register_tool("drift_bet_order", {
+    ctx.register_tool("drift_bet_order", "benki_drift", {
         "name": "drift_bet_order",
         "description": (
             "Place a bet on Drift BET prediction market (Solana). "

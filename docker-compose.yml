@@ -32,10 +32,19 @@ services:
 
   # ─── Benki Main (Orchestrator) ──────────────────────────────────────
   benki-main:
-    image: ghcr.io/nousresearch/hermes-agent:latest
+    image: nousresearch/hermes-agent:latest
     container_name: benki-main
     restart: unless-stopped
-    command: ["gateway"]
+    user: "root"
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        source /opt/hermes/.venv/bin/activate
+        mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
+        cp /opt/config.yaml /opt/data/config.yaml
+        chown -R hermes:hermes /opt/data
+        exec gosu hermes hermes gateway
     env_file:
       - ./configs/main/.env
     environment:
@@ -47,16 +56,16 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
     volumes:
       - main-data:/opt/data
-      # Plugin: risk_manager (read-only)
-      - ./plugins/risk-manager:/opt/data/plugins/risk-manager:ro
-      # Plugin: sentiment_parser (read-only)
-      - ./plugins/sentiment-parser:/opt/data/plugins/sentiment-parser:ro
-      # Plugin: db_client (read-only)
-      - ./plugins/db-client:/opt/data/plugins/db-client:ro
+      # Plugin: risk_manager
+      - ./plugins/risk-manager:/opt/data/plugins/risk-manager
+      # Plugin: sentiment_parser
+      - ./plugins/sentiment-parser:/opt/data/plugins/sentiment-parser
+      # Plugin: db_client
+      - ./plugins/db-client:/opt/data/plugins/db-client
       # Config overlay
-      - ./configs/main/config.yaml:/opt/data/config.yaml:ro
+      - ./configs/main/config.yaml:/opt/config.yaml:ro
       # Skills
-      - ./skills/main:/opt/data/skills/custom:ro
+      - ./skills/main:/opt/data/skills/custom
     networks:
       - benki-net
     depends_on:
@@ -71,10 +80,19 @@ services:
 
   # ─── Benki Trader (DeFi Execution) ──────────────────────────────────
   benki-trader:
-    image: ghcr.io/nousresearch/hermes-agent:latest
+    image: nousresearch/hermes-agent:latest
     container_name: benki-trader
     restart: unless-stopped
-    command: ["gateway"]
+    user: "root"
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        source /opt/hermes/.venv/bin/activate
+        mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
+        cp /opt/config.yaml /opt/data/config.yaml
+        chown -R hermes:hermes /opt/data
+        exec gosu hermes hermes gateway
     env_file:
       - ./configs/trader/.env
     environment:
@@ -85,15 +103,15 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
     volumes:
       - trader-data:/opt/data
-      # Plugins (read-only)
-      - ./plugins/risk-manager:/opt/data/plugins/risk-manager:ro
-      - ./plugins/evm-client:/opt/data/plugins/evm-client:ro
-      - ./plugins/solana-client:/opt/data/plugins/solana-client:ro
-      - ./plugins/db-client:/opt/data/plugins/db-client:ro
+      # Plugins
+      - ./plugins/risk-manager:/opt/data/plugins/risk-manager
+      - ./plugins/evm-client:/opt/data/plugins/evm-client
+      - ./plugins/solana-client:/opt/data/plugins/solana-client
+      - ./plugins/db-client:/opt/data/plugins/db-client
       # Config overlay
-      - ./configs/trader/config.yaml:/opt/data/config.yaml:ro
+      - ./configs/trader/config.yaml:/opt/config.yaml:ro
       # Skills
-      - ./skills/trader:/opt/data/skills/custom:ro
+      - ./skills/trader:/opt/data/skills/custom
     networks:
       - benki-net
     depends_on:
@@ -138,10 +156,19 @@ services:
 
   # ─── Benki Predictor (Prediction Markets) ───────────────────────────
   benki-predictor:
-    image: ghcr.io/nousresearch/hermes-agent:latest
+    image: nousresearch/hermes-agent:latest
     container_name: benki-predictor
     restart: unless-stopped
-    command: ["gateway"]
+    user: "root"
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        source /opt/hermes/.venv/bin/activate
+        mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
+        cp /opt/config.yaml /opt/data/config.yaml
+        chown -R hermes:hermes /opt/data
+        exec gosu hermes hermes gateway
     env_file:
       - ./configs/predictor/.env
     environment:
@@ -152,17 +179,17 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
     volumes:
       - predictor-data:/opt/data
-      # Plugins (read-only)
-      - ./plugins/risk-manager:/opt/data/plugins/risk-manager:ro
-      - ./plugins/evm-client:/opt/data/plugins/evm-client:ro
-      - ./plugins/solana-client:/opt/data/plugins/solana-client:ro
-      - ./plugins/polymarket-client:/opt/data/plugins/polymarket-client:ro
-      - ./plugins/drift-bet-client:/opt/data/plugins/drift-bet-client:ro
-      - ./plugins/db-client:/opt/data/plugins/db-client:ro
+      # Plugins
+      - ./plugins/risk-manager:/opt/data/plugins/risk-manager
+      - ./plugins/evm-client:/opt/data/plugins/evm-client
+      - ./plugins/solana-client:/opt/data/plugins/solana-client
+      - ./plugins/polymarket-client:/opt/data/plugins/polymarket-client
+      - ./plugins/drift-bet-client:/opt/data/plugins/drift-bet-client
+      - ./plugins/db-client:/opt/data/plugins/db-client
       # Config overlay
-      - ./configs/predictor/config.yaml:/opt/data/config.yaml:ro
+      - ./configs/predictor/config.yaml:/opt/config.yaml:ro
       # Skills
-      - ./skills/predictor:/opt/data/skills/custom:ro
+      - ./skills/predictor:/opt/data/skills/custom
     networks:
       - benki-net
     depends_on:

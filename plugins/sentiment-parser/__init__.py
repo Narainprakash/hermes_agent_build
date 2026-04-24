@@ -13,7 +13,7 @@ import json
 from datetime import datetime, timezone
 
 
-async def handle_sentiment_search(params):
+async def handle_sentiment_search(params, **kwargs):
     """
     Search for crypto market sentiment data.
     
@@ -58,7 +58,7 @@ async def handle_sentiment_search(params):
     })
 
 
-async def handle_score_sentiment(params):
+async def handle_score_sentiment(params, **kwargs):
     """
     Score and structure raw sentiment data into a brief.
     The agent calls this after gathering data to produce a formatted output.
@@ -109,7 +109,7 @@ async def handle_score_sentiment(params):
 def register(ctx):
     """Register sentiment analysis tools with Hermes."""
 
-    ctx.register_tool("sentiment_search", {
+    ctx.register_tool("sentiment_search", "benki_sentiment", {
         "name": "sentiment_search",
         "description": (
             "Generate a list of targeted search queries for crypto market sentiment analysis. "
@@ -132,7 +132,7 @@ def register(ctx):
         }
     }, handle_sentiment_search)
 
-    ctx.register_tool("score_sentiment", {
+    ctx.register_tool("score_sentiment", "benki_sentiment", {
         "name": "score_sentiment",
         "description": (
             "Score and structure raw sentiment signals into a quantified assessment. "
