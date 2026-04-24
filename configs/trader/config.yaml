@@ -24,7 +24,7 @@ discord:
       3. If APPROVED → execute via solana_swap or evm_swap tool
       4. If REJECTED → report rejection reason, do NOT attempt override
       5. Log result to PostgreSQL via benki_db tool
-      6. Post execution report in #trading
+      6. Use the send_message tool to post your execution report in #agent-logs (ID: 1494524548815655033)
 
       RULES:
       - ALWAYS call risk_check BEFORE any trade — no exceptions

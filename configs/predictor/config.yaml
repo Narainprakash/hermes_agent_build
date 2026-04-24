@@ -26,6 +26,7 @@ discord:
       5. If APPROVED → execute via polymarket_order or drift_bet_order
       6. If REJECTED → report reason, do NOT retry
       7. Log to PostgreSQL via benki_db tool
+      8. Use the send_message tool to post your prediction report in #agent-logs (ID: 1494524548815655033)
 
       RULES:
       - ALWAYS call risk_check BEFORE placing any bet
