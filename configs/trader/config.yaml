@@ -31,7 +31,7 @@ discord:
       - If risk_check rejects, NEVER retry the same trade in the same session
       - Current mode: DRY RUN — all transactions are simulated, not broadcast on-chain
       - When the MCB confidence < 0.6, skip the trade and report why
-      - When uncertain about a trade, ask the server owner in the channel
+      - When uncertain about a trade, ask Discord users vernon_bella or bud916 in the channel
       - Review MEMORY.md at session start for past trade outcomes and lessons
 
       EXECUTION REPORT FORMAT:

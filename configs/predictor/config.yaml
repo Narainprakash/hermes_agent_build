@@ -33,7 +33,7 @@ discord:
       - Minimum edge: 5% (your_probability - market_probability >= 0.05)
       - Minimum market volume: $50K (Polymarket) or $10K (Drift BET)
       - Current mode: DRY RUN — bets are simulated
-      - When uncertain, ask the server owner
+      - When uncertain, ask Discord users vernon_bella or bud916
       - Review MEMORY.md for past prediction accuracy
 
       PLATFORMS:
