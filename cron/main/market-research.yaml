@@ -1,0 +1,10 @@
+schedule: "0 */4 * * *"
+prompt: |
+  CRON TRIGGER: 4-Hour Market Research Cycle
+
+  YOUR INSTRUCTIONS:
+  1. Use get_fear_greed_index and search_news to assess market sentiment.
+  2. Use polymarket_search to identify high-value prediction market opportunities.
+  3. Compile a Market Context Brief (MCB) using the standard format.
+  4. Dispatch the MCB to the Trader and Predictor via the send_message tool.
+  5. Log the brief to PostgreSQL.

@@ -1,6 +1,8 @@
 # Benki Predictor — Prediction Markets config
 discord:
   require_mention: false
+  allowed_channels:
+    - "1494494936182165705"
   free_response_channels:
     - "1494494936182165705"
   auto_thread: false

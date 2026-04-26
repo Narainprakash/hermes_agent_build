@@ -56,6 +56,8 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
     volumes:
       - main-data:/opt/data
+      # Add new mount for cron loops
+      - ./cron/main:/opt/data/cron:ro
       # Plugin: risk_manager
       - ./plugins/risk-manager:/opt/data/plugins/risk-manager
       # Plugin: sentiment_parser
@@ -105,6 +107,8 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
     volumes:
       - trader-data:/opt/data
+      # Add new mount for cron loops
+      - ./cron/trader:/opt/data/cron:ro
       # Plugins
       - ./plugins/risk-manager:/opt/data/plugins/risk-manager
       - ./plugins/evm-client:/opt/data/plugins/evm-client
@@ -181,6 +185,8 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
     volumes:
       - predictor-data:/opt/data
+      # Add new mount for cron loops
+      - ./cron/predictor:/opt/data/cron:ro
       # Plugins
       - ./plugins/risk-manager:/opt/data/plugins/risk-manager
       - ./plugins/evm-client:/opt/data/plugins/evm-client

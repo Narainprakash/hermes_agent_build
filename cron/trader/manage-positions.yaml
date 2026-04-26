@@ -1,0 +1,6 @@
+schedule: "0 * * * *"
+prompt: |
+  CRON TRIGGER: 1-Hour Position Management
+
+  It is time to review open crypto positions and execute sells if necessary.
+  Please run your `manage-positions` procedure.

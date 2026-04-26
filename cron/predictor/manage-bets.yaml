@@ -1,0 +1,6 @@
+schedule: "0 0 * * *"
+prompt: |
+  CRON TRIGGER: Daily Bet Management
+
+  It is time to review open prediction market bets and evaluate if we should cash out early.
+  Please run your `manage-bets` procedure.

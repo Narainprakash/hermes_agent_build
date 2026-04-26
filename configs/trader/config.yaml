@@ -1,6 +1,8 @@
 # Benki Trader — DeFi Execution config
 discord:
   require_mention: false
+  allowed_channels:
+    - "1494494694057709789"
   free_response_channels:
     - "1494494694057709789"
   auto_thread: false
