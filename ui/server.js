@@ -176,6 +176,28 @@ app.get('/api/llm-usage', async (_req, res) => {
   }
 });
 
+// Minimax Token Usage (Remains API)
+app.get('/api/minimax-usage', async (_req, res) => {
+  const minimaxKey = process.env.MINIMAX_API_KEY;
+  if (!minimaxKey) {
+    return res.json({ error: 'MINIMAX_API_KEY not configured' });
+  }
+  try {
+    const apiRes = await fetch('https://api.minimax.io/v1/api/openplatform/coding_plan/remains', {
+      headers: { 
+        'Authorization': `Bearer ${minimaxKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!apiRes.ok) throw new Error('Minimax API error');
+    const data = await apiRes.json();
+    // Assuming the API returns { "remains": number, ... } or similar based on research
+    res.json(data);
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
 // Serve the dashboard SPA
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (_req, res) =>

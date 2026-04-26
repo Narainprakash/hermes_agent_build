@@ -264,11 +264,24 @@
       <!-- LLM Usage -->
       <section class="glass-card" aria-labelledby="llm-heading">
         <div class="card-header">
-          <h2 id="llm-heading" class="card-title">LLM Usage (OpenRouter)</h2>
+          <h2 id="llm-heading" class="card-title">LLM Usage</h2>
           <span class="last-updated" id="llmLastUpdated">–</span>
         </div>
-        <div class="risk-stats" id="llmStats">
-          <div class="table-empty">Loading LLM stats…</div>
+        
+        <div class="llm-usage-container">
+          <div class="llm-subgroup">
+            <div class="llm-subgroup-title">OpenRouter</div>
+            <div class="risk-stats" id="llmStats">
+              <div class="table-empty">Loading OpenRouter stats…</div>
+            </div>
+          </div>
+          
+          <div class="llm-subgroup" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05);">
+            <div class="llm-subgroup-title">Minimax (Coding Plan)</div>
+            <div class="risk-stats" id="minimaxStats">
+              <div class="table-empty">Loading Minimax stats…</div>
+            </div>
+          </div>
         </div>
       </section>
     </div>

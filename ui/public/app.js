@@ -432,6 +432,33 @@ async function refreshLlm() {
   el('llmLastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
+async function refreshMinimax() {
+  const usage = await fetchJSON('/api/minimax-usage');
+  const statsEl = el('minimaxStats');
+
+  if (!usage || usage.error) {
+    statsEl.innerHTML = `<div class="table-empty">${usage?.error || 'Could not load Minimax stats'}</div>`;
+    return;
+  }
+
+  // The "Coding Plan" API typically returns remaining quota
+  if (usage.data && usage.data.remains !== undefined) {
+    const remains = usage.data.remains;
+    statsEl.innerHTML = `
+      <div class="risk-stat">
+        <div class="risk-stat-label">Remaining Tokens</div>
+        <div class="risk-stat-value success">${remains.toLocaleString()}</div>
+      </div>
+      <div class="risk-stat">
+        <div class="risk-stat-label">Status</div>
+        <div class="risk-stat-value">${usage.base_resp?.status_msg || 'Active'}</div>
+      </div>
+    `;
+  } else {
+    statsEl.innerHTML = `<div class="table-empty">No quota data available</div>`;
+  }
+}
+
 
 // ══════════════════════════════════════════════════════════════════════════
 // Bootstrap
@@ -447,6 +474,7 @@ function start() {
   refreshSentiment();
   refreshCron();
   refreshLlm();
+  refreshMinimax();
 
   // Polling intervals
   setInterval(refreshStatus,    POLL_STATUS);
@@ -456,6 +484,7 @@ function start() {
   setInterval(refreshSentiment, POLL_SENTIMENT);
   setInterval(refreshCron,      POLL_CRON);
   setInterval(refreshLlm,       POLL_LLM);
+  setInterval(refreshMinimax,   POLL_LLM);
 }
 
 // Wait for DOM
