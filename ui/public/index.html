@@ -236,6 +236,43 @@
       </div>
     </section>
 
+    <!-- ── Advanced Details ────────────────────────────────────────────────── -->
+    <div class="two-col">
+      <!-- Cron Logs -->
+      <section class="glass-card" aria-labelledby="cron-heading">
+        <div class="card-header">
+          <h2 id="cron-heading" class="card-title">Cron Executions</h2>
+          <span class="last-updated" id="cronLastUpdated">–</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="cronTable">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Agent</th>
+                <th>Job Name</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="cronBody">
+              <tr><td colspan="4" class="table-empty">Loading cron logs…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- LLM Usage -->
+      <section class="glass-card" aria-labelledby="llm-heading">
+        <div class="card-header">
+          <h2 id="llm-heading" class="card-title">LLM Usage (OpenRouter)</h2>
+          <span class="last-updated" id="llmLastUpdated">–</span>
+        </div>
+        <div class="risk-stats" id="llmStats">
+          <div class="table-empty">Loading LLM stats…</div>
+        </div>
+      </section>
+    </div>
+
     <!-- ── Sentiment Briefs ────────────────────────────────────────────────── -->
     <section class="glass-card" aria-labelledby="sentiment-heading">
       <div class="card-header">

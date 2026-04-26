@@ -147,6 +147,35 @@ app.get('/api/risk/summary', async (_req, res) => {
   res.json(rows[0] || null);
 });
 
+// Cron logs
+app.get('/api/cron', async (_req, res) => {
+  const rows = await safeQuery(
+    `SELECT id, agent, cron_name, status, timestamp, details
+     FROM   cron_logs
+     ORDER  BY timestamp DESC
+     LIMIT  20`
+  );
+  res.json(rows);
+});
+
+// LLM Token Usage (OpenRouter API)
+app.get('/api/llm-usage', async (_req, res) => {
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  if (!openRouterKey) {
+    return res.json({ error: 'OPENROUTER_API_KEY not configured' });
+  }
+  try {
+    const apiRes = await fetch('https://openrouter.ai/api/v1/auth/key', {
+      headers: { Authorization: `Bearer ${openRouterKey}` }
+    });
+    if (!apiRes.ok) throw new Error('OpenRouter API error');
+    const data = await apiRes.json();
+    res.json({ data: data.data });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
 // Serve the dashboard SPA
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (_req, res) =>
@@ -157,4 +186,36 @@ app.get('*', (_req, res) =>
 app.listen(PORT, () => {
   console.log(`[benki-ui] Dashboard running → http://localhost:${PORT}`);
   console.log(`[benki-ui] Polling agents on port ${GATEWAY_PORT} at ${HEALTH_PATH}`);
+
+  // Automated first run of crons
+  setTimeout(async () => {
+    console.log('[benki-ui] Triggering initial cron cycles...');
+    const triggers = [
+      { host: process.env.MAIN_HOST || 'benki-main', prompt: "CRON TRIGGER: 4-Hour Market Research Cycle. Please run your instructions." },
+      { host: process.env.TRADER_HOST || 'benki-trader', prompt: "CRON TRIGGER: 1-Hour Position Management. Please run your manage-positions procedure." },
+      { host: process.env.PREDICTOR_HOST || 'benki-predictor', prompt: "CRON TRIGGER: Daily Bet Management. Please run your manage-bets procedure." }
+    ];
+
+    for (const t of triggers) {
+      try {
+        const url = `http://${t.host}:${GATEWAY_PORT}/chat/completions`;
+        const payload = { messages: [{ role: "user", content: t.prompt }] };
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          console.log(`[benki-ui] Triggered cron on ${t.host} successfully.`);
+        } else {
+          console.error(`[benki-ui] Failed to trigger cron on ${t.host}: HTTP ${res.status}`);
+        }
+      } catch (err) {
+        console.error(`[benki-ui] Could not trigger cron on ${t.host}: ${err.message}`);
+      }
+    }
+  }, 15000); // Wait 15s after startup for agents to finish booting
 });

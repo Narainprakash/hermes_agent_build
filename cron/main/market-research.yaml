@@ -8,3 +8,4 @@ prompt: |
   3. Compile a Market Context Brief (MCB) using the standard format.
   4. Dispatch the MCB to the Trader and Predictor via the send_message tool.
   5. Log the brief to PostgreSQL.
+  6. Call benki_db_log_cron with agent="main", cron_name="market-research", status="success" to record that this cron cycle ran successfully.

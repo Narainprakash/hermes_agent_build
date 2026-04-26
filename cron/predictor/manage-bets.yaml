@@ -4,3 +4,4 @@ prompt: |
 
   It is time to review open prediction market bets and evaluate if we should cash out early.
   Please run your `manage-bets` procedure.
+  After completing the procedure, call benki_db_log_cron with agent="predictor", cron_name="manage-bets", status="success" to record that this cron cycle ran successfully.

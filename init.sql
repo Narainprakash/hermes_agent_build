@@ -62,6 +62,16 @@ CREATE TABLE risk_audit_log (
     daily_pnl_at_check      NUMERIC
 );
 
+-- Cron execution log
+CREATE TABLE cron_logs (
+    id              SERIAL PRIMARY KEY,
+    agent           TEXT NOT NULL,
+    cron_name       TEXT NOT NULL,
+    timestamp       TIMESTAMPTZ DEFAULT NOW(),
+    status          TEXT DEFAULT 'success',
+    details         TEXT
+);
+
 -- Index for common queries
 CREATE INDEX idx_trades_agent ON trades(agent);
 CREATE INDEX idx_trades_status ON trades(status);
@@ -69,3 +79,4 @@ CREATE INDEX idx_trades_timestamp ON trades(timestamp);
 CREATE INDEX idx_risk_audit_timestamp ON risk_audit_log(timestamp);
 CREATE INDEX idx_risk_audit_agent ON risk_audit_log(agent);
 CREATE INDEX idx_sentiment_timestamp ON sentiment_briefs(timestamp);
+CREATE INDEX idx_cron_logs_timestamp ON cron_logs(timestamp);

@@ -159,6 +159,31 @@ async def handle_log_sentiment(params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
+async def handle_log_cron(params, **kwargs):
+    """Log a cron execution to the database."""
+    db_url = _get_db_url()
+    if not db_url:
+        return json.dumps({"error": "BENKI_DB_URL not configured"})
+
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(db_url)
+        try:
+            await conn.execute(
+                """INSERT INTO cron_logs (agent, cron_name, status, details)
+                   VALUES ($1, $2, $3, $4)""",
+                params.get("agent", "unknown"),
+                params.get("cron_name", "unknown"),
+                params.get("status", "success"),
+                params.get("details", "")
+            )
+            return json.dumps({"success": True, "message": "Cron log recorded"})
+        finally:
+            await conn.close()
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 def register(ctx):
     """Register database tools with Hermes."""
 
@@ -232,3 +257,20 @@ def register(ctx):
             "required": ["brief_text", "overall_sentiment", "confidence"]
         }
     }, handle_log_sentiment, is_async=True)
+
+    # ── Log Cron Execution ──
+    ctx.register_tool("benki_db_log_cron", "benki_db", {
+        "name": "benki_db_log_cron",
+        "description": "Log a scheduled cron job execution to the database.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "agent": {"type": "string", "description": "Agent: 'main', 'trader', or 'predictor'"},
+                "cron_name": {"type": "string", "description": "Name of the cron job (e.g., 'market-research')"},
+                "status": {"type": "string", "description": "Status: 'success' or 'failed'"},
+                "details": {"type": "string", "description": "Any additional details or summary"}
+            },
+            "required": ["agent", "cron_name"]
+        }
+    }, handle_log_cron, is_async=True)
+

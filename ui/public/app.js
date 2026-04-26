@@ -11,6 +11,8 @@ const POLL_TRADES    = 30_000;   // 30 s  — trade feed
 const POLL_RISK      = 30_000;   // 30 s  — risk log
 const POLL_PNL       = 60_000;   // 60 s  — P&L chart
 const POLL_SENTIMENT = 60_000;   // 60 s  — sentiment briefs
+const POLL_CRON      = 15_000;   // 15 s  — cron logs
+const POLL_LLM       = 60_000;   // 60 s  — llm usage
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -376,6 +378,62 @@ function escHtml(str) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// Advanced Details
+// ══════════════════════════════════════════════════════════════════════════
+async function refreshCron() {
+  const crons = await fetchJSON('/api/cron');
+  const tbody = el('cronBody');
+
+  if (!crons || crons.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No cron logs recorded yet</td></tr>';
+    el('cronLastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    return;
+  }
+
+  tbody.innerHTML = crons.map(c => `
+    <tr>
+      <td>${fmtTime(c.timestamp)}</td>
+      <td>${c.agent ?? '—'}</td>
+      <td>${c.cron_name ?? '—'}</td>
+      <td><span class="badge badge-${c.status === 'success' ? 'execute' : 'rejected'}">${c.status ?? '—'}</span></td>
+    </tr>
+  `).join('');
+
+  el('cronLastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+async function refreshLlm() {
+  const usage = await fetchJSON('/api/llm-usage');
+  const statsEl = el('llmStats');
+
+  if (!usage || usage.error) {
+    statsEl.innerHTML = `<div class="table-empty">${usage?.error || 'Could not load LLM stats'}</div>`;
+    el('llmLastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    return;
+  }
+
+  if (usage.data) {
+    const d = usage.data;
+    statsEl.innerHTML = `
+      <div class="risk-stat">
+        <div class="risk-stat-label">Credits Remaining</div>
+        <div class="risk-stat-value success">${d.limit != null && d.usage != null ? fmtUSD(d.limit - d.usage) : '—'}</div>
+      </div>
+      <div class="risk-stat">
+        <div class="risk-stat-label">Spend (USD)</div>
+        <div class="risk-stat-value">${d.usage != null ? fmtUSD(d.usage) : '—'}</div>
+      </div>
+      <div class="risk-stat">
+        <div class="risk-stat-label">Limit (USD)</div>
+        <div class="risk-stat-value">${d.limit != null ? fmtUSD(d.limit) : '—'}</div>
+      </div>
+    `;
+  }
+  el('llmLastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
 // Bootstrap
 // ══════════════════════════════════════════════════════════════════════════
 function start() {
@@ -387,6 +445,8 @@ function start() {
   refreshRisk();
   refreshPnl();
   refreshSentiment();
+  refreshCron();
+  refreshLlm();
 
   // Polling intervals
   setInterval(refreshStatus,    POLL_STATUS);
@@ -394,6 +454,8 @@ function start() {
   setInterval(refreshRisk,      POLL_RISK);
   setInterval(refreshPnl,       POLL_PNL);
   setInterval(refreshSentiment, POLL_SENTIMENT);
+  setInterval(refreshCron,      POLL_CRON);
+  setInterval(refreshLlm,       POLL_LLM);
 }
 
 // Wait for DOM
