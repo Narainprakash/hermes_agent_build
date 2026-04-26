@@ -198,7 +198,7 @@ app.listen(PORT, () => {
 
     for (const t of triggers) {
       try {
-        const url = `http://${t.host}:${GATEWAY_PORT}/chat/completions`;
+        const url = `http://${t.host}:${GATEWAY_PORT}/v1/chat/completions`;
         const payload = { messages: [{ role: "user", content: t.prompt }] };
         const res = await fetch(url, {
           method: 'POST',

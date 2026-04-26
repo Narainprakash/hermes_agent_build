@@ -57,7 +57,7 @@ services:
     volumes:
       - main-data:/opt/data
       # Add new mount for cron loops
-      - ./cron/main:/opt/data/cron:ro
+      - ./cron/main:/opt/data/cron
       # Plugin: risk_manager
       - ./plugins/risk-manager:/opt/data/plugins/risk-manager
       # Plugin: sentiment_parser
@@ -108,7 +108,7 @@ services:
     volumes:
       - trader-data:/opt/data
       # Add new mount for cron loops
-      - ./cron/trader:/opt/data/cron:ro
+      - ./cron/trader:/opt/data/cron
       # Plugins
       - ./plugins/risk-manager:/opt/data/plugins/risk-manager
       - ./plugins/evm-client:/opt/data/plugins/evm-client
@@ -187,7 +187,7 @@ services:
     volumes:
       - predictor-data:/opt/data
       # Add new mount for cron loops
-      - ./cron/predictor:/opt/data/cron:ro
+      - ./cron/predictor:/opt/data/cron
       # Plugins
       - ./plugins/risk-manager:/opt/data/plugins/risk-manager
       - ./plugins/evm-client:/opt/data/plugins/evm-client
