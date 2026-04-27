@@ -211,17 +211,29 @@ app.listen(PORT, () => {
 
   // Automated first run of crons
   setTimeout(async () => {
-    console.log('[benki-ui] Triggering initial cron cycles...');
+    console.log('[benki-ui] Triggering initial cron cycles (30s boot delay)...');
     const triggers = [
-      { host: process.env.MAIN_HOST || 'benki-main', prompt: "CRON TRIGGER: 4-Hour Market Research Cycle. Please run your instructions." },
-      { host: process.env.TRADER_HOST || 'benki-trader', prompt: "CRON TRIGGER: 1-Hour Position Management. Please run your manage-positions procedure." },
-      { host: process.env.PREDICTOR_HOST || 'benki-predictor', prompt: "CRON TRIGGER: Daily Bet Management. Please run your manage-bets procedure." }
+      { 
+        host: process.env.MAIN_HOST || 'benki-main', 
+        prompt: "SYSTEM COMMAND: Execute the 4-Hour Market Research Cycle now. Fetch Fear & Greed Index, get crypto news, research Polymarket opportunities, compile the MCB, dispatch it to other agents, and log the execution to the database." 
+      },
+      { 
+        host: process.env.TRADER_HOST || 'benki-trader', 
+        prompt: "SYSTEM COMMAND: Execute your 'manage-positions' procedure now. Review all open crypto positions, evaluate exit criteria, execute any necessary sells, and log the execution to the database." 
+      },
+      { 
+        host: process.env.PREDICTOR_HOST || 'benki-predictor', 
+        prompt: "SYSTEM COMMAND: Execute your 'manage-bets' procedure now. Review all open prediction market bets, evaluate edge, execute early cash-outs if required, and log the execution to the database." 
+      }
     ];
 
     for (const t of triggers) {
       try {
         const url = `http://${t.host}:${GATEWAY_PORT}/v1/chat/completions`;
-        const payload = { messages: [{ role: "user", content: t.prompt }] };
+        const payload = { 
+          model: "hermes", // Optional but often required by gateway wrappers
+          messages: [{ role: "user", content: t.prompt }] 
+        };
         const res = await fetch(url, {
           method: 'POST',
           headers: {
@@ -239,5 +251,5 @@ app.listen(PORT, () => {
         console.error(`[benki-ui] Could not trigger cron on ${t.host}: ${err.message}`);
       }
     }
-  }, 15000); // Wait 15s after startup for agents to finish booting
+  }, 30000); // Wait 30s after startup as requested
 });
