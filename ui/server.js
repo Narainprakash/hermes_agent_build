@@ -249,3 +249,4 @@ app.listen(PORT, () => {
       }
     }
   }, 45_000); // 45s — agents need longer than 30s to fully boot + connect to Discord
+});
