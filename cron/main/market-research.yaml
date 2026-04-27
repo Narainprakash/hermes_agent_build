@@ -1,11 +1,23 @@
+# cron/main/market-research.yaml — replace the prompt with:
 schedule: "0 */4 * * *"
 prompt: |
   CRON TRIGGER: 4-Hour Market Research Cycle
 
   YOUR INSTRUCTIONS:
-  1. Use get_fear_greed_index and search_news to assess market sentiment.
-  2. Use polymarket_search to identify high-value prediction market opportunities.
-  3. Compile a Market Context Brief (MCB) using the standard format.
-  4. Dispatch the MCB to the Trader and Predictor via the send_message tool.
-  5. Log the brief to PostgreSQL.
-  6. Call benki_db_log_cron with agent="main", cron_name="market-research", status="success" to record that this cron cycle ran successfully.
+  1. Use get_fear_greed_index and get_crypto_prices for bitcoin, ethereum, solana.
+  2. Use search_news to assess market sentiment for 'Bitcoin Ethereum Solana market today'.
+  3. Use polymarket_search to identify high-value prediction market opportunities (min_volume: 50000).
+  4. Compile a Market Context Brief (MCB) using the standard format. Include confidence score.
+  5. Log the brief: benki_db_log_sentiment
+  6. DISPATCH TO TRADER: send_message to channel 1494494694057709789 with this exact format:
+     "@benki_trader ACTION REQUIRED — Execute trade evaluation based on this MCB:
+     [full MCB here]
+     Please run your execute-trade skill now using the signals above."
+  7. DISPATCH TO PREDICTOR: send_message to channel 1494494936182165705 with this exact format:
+     "@benki_predictor ACTION REQUIRED — Execute prediction scan based on this MCB:
+     [full MCB here]
+     Please run your polymarket-scan and drift-bet-scan skills now using the signals above."
+  8. Call benki_db_log_cron with agent="main", cron_name="market-research", status="success".
+
+  RULE: If overall confidence < 0.5, replace ACTION REQUIRED with LOW CONFIDENCE and ask 
+  vernon_bella or bud916 for approval before dispatching steps 6 and 7.

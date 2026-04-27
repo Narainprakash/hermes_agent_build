@@ -1,19 +1,19 @@
 'use strict';
 
 const express = require('express');
-const { Pool }  = require('pg');
-const path      = require('path');
+const { Pool } = require('pg');
+const path = require('path');
 
 // ─── Config ────────────────────────────────────────────────────────────────
-const PORT          = parseInt(process.env.PORT || '3000', 10);
-const GATEWAY_PORT  = process.env.GATEWAY_PORT  || '8642';
-const HEALTH_PATH   = process.env.HEALTH_PATH   || '/health';
-const API_KEY       = process.env.API_SERVER_KEY || '';
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const GATEWAY_PORT = process.env.GATEWAY_PORT || '8642';
+const HEALTH_PATH = process.env.HEALTH_PATH || '/health';
+const API_KEY = process.env.API_SERVER_KEY || '';
 
 const AGENTS = [
-  { id: 'main',      name: 'Orchestrator', host: process.env.MAIN_HOST      || 'benki-main'      },
-  { id: 'trader',    name: 'Trader',       host: process.env.TRADER_HOST    || 'benki-trader'    },
-  { id: 'predictor', name: 'Predictor',    host: process.env.PREDICTOR_HOST || 'benki-predictor' },
+  { id: 'main', name: 'Orchestrator', host: process.env.MAIN_HOST || 'benki-main' },
+  { id: 'trader', name: 'Trader', host: process.env.TRADER_HOST || 'benki-trader' },
+  { id: 'predictor', name: 'Predictor', host: process.env.PREDICTOR_HOST || 'benki-predictor' },
 ];
 
 // ─── Database ───────────────────────────────────────────────────────────────
@@ -28,30 +28,30 @@ pool.on('error', (err) => {
  * Hit a single agent's health endpoint. Returns a status object.
  */
 async function checkAgent(agent) {
-  const url   = `http://${agent.host}:${GATEWAY_PORT}${HEALTH_PATH}`;
+  const url = `http://${agent.host}:${GATEWAY_PORT}${HEALTH_PATH}`;
   const start = Date.now();
   try {
-    const res     = await fetch(url, {
+    const res = await fetch(url, {
       headers: API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {},
-      signal:  AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(5000),
     });
     const latency = Date.now() - start;
     let body = {};
     try { body = await res.json(); } catch (_) { /* non-JSON body is fine */ }
     return {
       ...agent,
-      status:      res.ok ? 'online' : 'degraded',
-      httpStatus:  res.status,
-      latencyMs:   latency,
-      detail:      body,
+      status: res.ok ? 'online' : 'degraded',
+      httpStatus: res.status,
+      latencyMs: latency,
+      detail: body,
       lastChecked: new Date().toISOString(),
     };
   } catch (err) {
     return {
       ...agent,
-      status:      'offline',
-      latencyMs:   null,
-      error:       err.message,
+      status: 'offline',
+      latencyMs: null,
+      error: err.message,
       lastChecked: new Date().toISOString(),
     };
   }
@@ -184,7 +184,7 @@ app.get('/api/minimax-usage', async (_req, res) => {
   }
   try {
     const apiRes = await fetch('https://api.minimax.io/v1/api/openplatform/coding_plan/remains', {
-      headers: { 
+      headers: {
         'Authorization': `Bearer ${minimaxKey}`,
         'Content-Type': 'application/json'
       }
@@ -211,45 +211,41 @@ app.listen(PORT, () => {
 
   // Automated first run of crons
   setTimeout(async () => {
-    console.log('[benki-ui] Triggering initial cron cycles (30s boot delay)...');
+    console.log('[benki-ui] Sending startup triggers to agents...');
+
     const triggers = [
-      { 
-        host: process.env.MAIN_HOST || 'benki-main', 
-        prompt: "SYSTEM COMMAND: Execute the 4-Hour Market Research Cycle now. Fetch Fear & Greed Index, get crypto news, research Polymarket opportunities, compile the MCB, dispatch it to other agents, and log the execution to the database." 
+      {
+        host: process.env.MAIN_HOST || 'benki-main',
+        prompt: `Run the market-research skill now. Steps:\n1. get_crypto_prices for bitcoin, ethereum, solana\n2. get_fear_greed_index\n3. search_news for 'Bitcoin Ethereum Solana market sentiment today'\n4. Compile and dispatch a Market Context Brief to #trading (channel ${process.env.TRADING_CHANNEL_ID || '1494494694057709789'}) and #predictions (channel ${process.env.PREDICTIONS_CHANNEL_ID || '1494494936182165705'})\n5. benki_db_log_cron agent='main' cron_name='market-research' status='success'`
       },
-      { 
-        host: process.env.TRADER_HOST || 'benki-trader', 
-        prompt: "SYSTEM COMMAND: Execute your 'manage-positions' procedure now. Review all open crypto positions, evaluate exit criteria, execute any necessary sells, and log the execution to the database." 
+      {
+        host: process.env.TRADER_HOST || 'benki-trader',
+        prompt: "Run the manage-positions skill now. Check open positions, evaluate exit criteria, execute sells where criteria are met, log results."
       },
-      { 
-        host: process.env.PREDICTOR_HOST || 'benki-predictor', 
-        prompt: "SYSTEM COMMAND: Execute your 'manage-bets' procedure now. Review all open prediction market bets, evaluate edge, execute early cash-outs if required, and log the execution to the database." 
+      {
+        host: process.env.PREDICTOR_HOST || 'benki-predictor',
+        prompt: "Run the manage-bets skill now. Check open prediction market bets, re-evaluate edge on each, cash out early where edge has gone negative, log results."
       }
     ];
 
     for (const t of triggers) {
       try {
         const url = `http://${t.host}:${GATEWAY_PORT}/v1/chat/completions`;
-        const payload = { 
-          model: "hermes", // Optional but often required by gateway wrappers
-          messages: [{ role: "user", content: t.prompt }] 
-        };
         const res = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {})
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            model: "hermes",
+            messages: [{ role: "user", content: t.prompt }]
+          }),
+          signal: AbortSignal.timeout(15000)  // don't block server startup forever
         });
-        if (res.ok) {
-          console.log(`[benki-ui] Triggered cron on ${t.host} successfully.`);
-        } else {
-          console.error(`[benki-ui] Failed to trigger cron on ${t.host}: HTTP ${res.status}`);
-        }
+        console.log(`[benki-ui] Startup trigger → ${t.host}: HTTP ${res.status}`);
       } catch (err) {
-        console.error(`[benki-ui] Could not trigger cron on ${t.host}: ${err.message}`);
+        console.warn(`[benki-ui] Startup trigger failed for ${t.host}: ${err.message}`);
       }
     }
-  }, 30000); // Wait 30s after startup as requested
-});
+  }, 45_000); // 45s — agents need longer than 30s to fully boot + connect to Discord

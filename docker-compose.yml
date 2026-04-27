@@ -202,6 +202,8 @@ services:
       MAIN_HOST: benki-main
       TRADER_HOST: benki-trader
       PREDICTOR_HOST: benki-predictor
+      TRADING_CHANNEL_ID: "1494494694057709789"
+      PREDICTIONS_CHANNEL_ID: "1494494936182165705"
     networks:
       - benki-net
     depends_on:
