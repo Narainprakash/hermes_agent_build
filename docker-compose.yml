@@ -140,7 +140,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://benki:${POSTGRES_PASSWORD}@postgres:5432/benki
+      DATABASE_URL: postgresql://benki:Hermes%40123@postgres:5432/benki
       # Must match the API_SERVER_KEY set on the agent services above
       API_SERVER_KEY: ${API_SERVER_KEY}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}

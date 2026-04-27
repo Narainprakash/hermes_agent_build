@@ -1,0 +1,128 @@
+{
+  "jobs": [
+    {
+      "id": "1e643f9c2b80",
+      "name": "market-research",
+      "prompt": "You are Benki Main, orchestrator of the Benki crypto trading system.\n\nTASK: Run a full market research cycle and dispatch a Market Context Brief.\n\nSTEPS:\n1. Fetch live crypto prices: get_crypto_prices for ['bitcoin', 'ethereum', 'solana']\n2. Fetch Fear & Greed Index: get_fear_greed_index\n3. Search crypto news: search_news for 'Bitcoin Ethereum Solana market sentiment today'\n4. Build a structured Market Context Brief (MCB) with:\n   - Overall Sentiment (Bullish/Bearish/Neutral) with confidence score (0.0-1.0)\n   - Key Signals (from price data, fear/greed, news)\n   - Actionable for Trader (specific tokens/pairs with reasoning)\n   - Actionable for Predictor (specific markets/events with reasoning)\n   - Risk Advisory (current drawdown %, circuit breaker status from benki_db_daily_pnl)\n\n5. Log the brief to DB: benki_db_log_sentiment with tokens_analyzed=['BTC','ETH','SOL'], dispatched_to=['trader','predictor']\n6. Send the MCB to #trading channel (discord:1494491712867799142) via send_message\n7. Send the MCB to #predictions channel (discord:1494491712867799142) via send_message\n8. Log cron execution: benki_db_log_cron(agent='main', cron_name='market-research', status='success')\n\nRULES:\n- Confidence < 0.5 \u2192 flag \"LOW CONFIDENCE\" in the brief and ask vernon_bella or bud916 before dispatching\n- Never execute trades \u2014 analyze and delegate only\n- Always include confidence scores\n\nIf any step fails, log benki_db_log_cron with status='failed' and include error details.",
+      "skills": [
+        "benki"
+      ],
+      "skill": "benki",
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 240,
+        "display": "every 240m"
+      },
+      "schedule_display": "every 240m",
+      "repeat": {
+        "times": null,
+        "completed": 1
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-04-27T00:06:02.342066+00:00",
+      "next_run_at": "2026-04-27T04:08:27.091132+00:00",
+      "last_run_at": "2026-04-27T00:08:27.091132+00:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "discord",
+        "chat_id": "1494491712867799142",
+        "chat_name": "benkis_server / #general",
+        "thread_id": null
+      },
+      "enabled_toolsets": null
+    },
+    {
+      "id": "ab1287833d45",
+      "name": "daily-summary",
+      "prompt": "You are Benki Main, orchestrator of the Benki crypto trading system.\n\nTASK: Generate and send a daily summary to vernon_bella and bud916.\n\nSTEPS:\n1. Fetch today's P&L and circuit breaker status: benki_db_daily_pnl (date: today)\n2. Query recent trades: benki_db_query_trades(limit=10)\n3. Fetch live Fear & Greed Index: get_fear_greed_index\n4. Build a concise daily summary covering:\n   - Today's P&L (% and $)\n   - Current drawdown and circuit breaker status\n   - Recent trade summary (wins/losses, most active agent)\n   - Fear & Greed reading and what it means\n   - Any LOW CONFIDENCE briefs from market-research that need human input\n   - Any decisions requiring human judgment (escalations)\n5. Send the summary via send_message to both vernon_bella and bud916 (direct messages or tag them)\n6. Log cron execution: benki_db_log_cron(agent='main', cron_name='daily-summary', status='success', details='Summary sent to humans')\n\nRULES:\n- Escalate anything requiring human judgment (confidence < 0.5 on key decisions, unusual drawdown, circuit breaker triggered)\n- Keep the summary actionable and concise\n- Never execute trades\n\nIf any step fails, log benki_db_log_cron with status='failed' and include error details.",
+      "skills": [
+        "benki"
+      ],
+      "skill": "benki",
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 9 * * *",
+        "display": "0 9 * * *"
+      },
+      "schedule_display": "0 9 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 1
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-04-27T00:06:17.299286+00:00",
+      "next_run_at": "2026-04-27T09:00:00+00:00",
+      "last_run_at": "2026-04-27T00:08:00.166376+00:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "discord",
+        "chat_id": "1494491712867799142",
+        "chat_name": "benkis_server / #general",
+        "thread_id": null
+      },
+      "enabled_toolsets": null
+    },
+    {
+      "id": "b30d76aef637",
+      "name": "performance-log",
+      "prompt": "You are Benki Main, orchestrator of the Benki crypto trading system.\n\nTASK: Log daily performance metrics to the database.\n\nSTEPS:\n1. Query today's P&L: benki_db_daily_pnl (date: today)\n2. Log the cron execution: benki_db_log_cron(agent='main', cron_name='performance-log', status='success', details='Daily performance metrics logged - P&L: $X, Drawdown: Y%')\n3. If benki_db_daily_pnl returns data showing a circuit breaker triggered or drawdown > 8%, send an urgent alert via send_message to discord channel tagging vernon_bella and bud916\n4. Save a performance snapshot to ~/./cron/output/performance-YYYY-MM-DD.json with the P&L data\n\nRULES:\n- Never execute trades\n- If database is unreachable, log to local file as fallback and report the failure\n\nIf any step fails, log benki_db_log_cron with status='failed' and include error details.",
+      "skills": [
+        "benki"
+      ],
+      "skill": "benki",
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 18 * * *",
+        "display": "0 18 * * *"
+      },
+      "schedule_display": "0 18 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 1
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-04-27T00:06:18.323361+00:00",
+      "next_run_at": "2026-04-27T18:00:00+00:00",
+      "last_run_at": "2026-04-27T00:07:24.304584+00:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "discord",
+        "chat_id": "1494491712867799142",
+        "chat_name": "benkis_server / #general",
+        "thread_id": null
+      },
+      "enabled_toolsets": null
+    }
+  ],
+  "updated_at": "2026-04-27T00:08:27.096430+00:00"
+}
