@@ -17,3 +17,11 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Cron output logs (contain operational data)
+cron/*/output/
+cron/*/.tick.lock
+
+# Implementation docs with embedded secrets
+IMPLEMENTATION_PLAN.md
+implementation_plan_original.md

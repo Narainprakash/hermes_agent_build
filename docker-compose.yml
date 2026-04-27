@@ -43,6 +43,32 @@ services:
         source /opt/hermes/.venv/bin/activate
         mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
         cp /opt/config.yaml /opt/data/config.yaml
+
+        # ── Reset cron next_run_at so jobs fire immediately on startup ──
+        python3 - <<'PYEOF'
+        import json, os
+        from datetime import datetime, timezone, timedelta
+
+        cron_file = "/opt/data/cron/jobs.json"
+        if os.path.exists(cron_file):
+            with open(cron_file) as f:
+                data = json.load(f)
+            
+            # Schedule 90s from now — gives agent time to finish booting
+            trigger_at = (datetime.now(timezone.utc) + timedelta(seconds=90)).strftime(
+                "%Y-%m-%dT%H:%M:%S+00:00"
+            )
+            changed = 0
+            for job in data.get("jobs", []):
+                if job.get("enabled", True) and job.get("state") != "paused":
+                    job["next_run_at"] = trigger_at
+                    changed += 1
+            
+            with open(cron_file, "w") as f:
+                json.dump(data, f, indent=2)
+                print(f"[startup] Reset next_run_at for {changed} cron job(s) → {trigger_at}")
+        PYEOF
+
         chown -R hermes:hermes /opt/data
         exec gosu hermes hermes gateway
     env_file:
@@ -95,6 +121,32 @@ services:
         source /opt/hermes/.venv/bin/activate
         mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
         cp /opt/config.yaml /opt/data/config.yaml
+
+        # ── Reset cron next_run_at so jobs fire immediately on startup ──
+        python3 - <<'PYEOF'
+        import json, os
+        from datetime import datetime, timezone, timedelta
+
+        cron_file = "/opt/data/cron/jobs.json"
+        if os.path.exists(cron_file):
+            with open(cron_file) as f:
+                data = json.load(f)
+            
+            # Schedule 90s from now — gives agent time to finish booting
+            trigger_at = (datetime.now(timezone.utc) + timedelta(seconds=90)).strftime(
+                "%Y-%m-%dT%H:%M:%S+00:00"
+            )
+            changed = 0
+            for job in data.get("jobs", []):
+                if job.get("enabled", True) and job.get("state") != "paused":
+                    job["next_run_at"] = trigger_at
+                    changed += 1
+            
+            with open(cron_file, "w") as f:
+                json.dump(data, f, indent=2)
+                print(f"[startup] Reset next_run_at for {changed} cron job(s) → {trigger_at}")
+        PYEOF
+
         chown -R hermes:hermes /opt/data
         exec gosu hermes hermes gateway
     env_file:
@@ -175,6 +227,32 @@ services:
         source /opt/hermes/.venv/bin/activate
         mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
         cp /opt/config.yaml /opt/data/config.yaml
+
+        # ── Reset cron next_run_at so jobs fire immediately on startup ──
+        python3 - <<'PYEOF'
+        import json, os
+        from datetime import datetime, timezone, timedelta
+
+        cron_file = "/opt/data/cron/jobs.json"
+        if os.path.exists(cron_file):
+            with open(cron_file) as f:
+                data = json.load(f)
+            
+            # Schedule 90s from now — gives agent time to finish booting
+            trigger_at = (datetime.now(timezone.utc) + timedelta(seconds=90)).strftime(
+                "%Y-%m-%dT%H:%M:%S+00:00"
+            )
+            changed = 0
+            for job in data.get("jobs", []):
+                if job.get("enabled", True) and job.get("state") != "paused":
+                    job["next_run_at"] = trigger_at
+                    changed += 1
+            
+            with open(cron_file, "w") as f:
+                json.dump(data, f, indent=2)
+                print(f"[startup] Reset next_run_at for {changed} cron job(s) → {trigger_at}")
+        PYEOF
+
         chown -R hermes:hermes /opt/data
         exec gosu hermes hermes gateway
     env_file:
