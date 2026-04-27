@@ -109,7 +109,14 @@ async def handle_query_daily_pnl(params, **kwargs):
         import asyncpg
         conn = await asyncpg.connect(db_url)
         try:
-            target_date = params.get("date", date.today().isoformat())
+            target_date_str = params.get("date", date.today().isoformat())
+            # Convert string to date object for asyncpg
+            from datetime import datetime
+            try:
+                target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                target_date = date.today()
+
             rows = await conn.fetch(
                 "SELECT * FROM daily_pnl WHERE date = $1", target_date
             )
