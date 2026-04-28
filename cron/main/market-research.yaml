@@ -1,23 +1,74 @@
-# cron/main/market-research.yaml — replace the prompt with:
-schedule: "0 */4 * * *"
+# cron/main/market-research.yaml (v4 — with funding rates + fixed schedule)
+# Every 2 hours. Added full watchlist + funding rate signals.
+schedule: "0 */2 * * *"
 prompt: |
-  CRON TRIGGER: 4-Hour Market Research Cycle
+  CRON TRIGGER: 2-Hour Market Research Cycle
 
   YOUR INSTRUCTIONS:
-  1. Use get_fear_greed_index and get_crypto_prices for bitcoin, ethereum, solana.
-  2. Use search_news to assess market sentiment for 'Bitcoin Ethereum Solana market today'.
-  3. Use polymarket_search to identify high-value prediction market opportunities (min_volume: 50000).
-  4. Compile a Market Context Brief (MCB) using the standard format. Include confidence score.
-  5. Log the brief: benki_db_log_sentiment
-  6. DISPATCH TO TRADER: send_message to channel 1494494694057709789 with this exact format:
-     "@benki_trader ACTION REQUIRED — Execute trade evaluation based on this MCB:
-     [full MCB here]
-     Please run your execute-trade skill now using the signals above."
-  7. DISPATCH TO PREDICTOR: send_message to channel 1494494936182165705 with this exact format:
-     "@benki_predictor ACTION REQUIRED — Execute prediction scan based on this MCB:
-     [full MCB here]
-     Please run your polymarket-scan and drift-bet-scan skills now using the signals above."
-  8. Call benki_db_log_cron with agent="main", cron_name="market-research", status="success".
+  1. Fetch prices for the FULL watchlist:
+     get_crypto_prices for: ["bitcoin","ethereum","solana","arbitrum","optimism",
+     "matic-network","avalanche-2","chainlink","render-token","injective-protocol","dogwifhat","pepe"]
 
-  RULE: If overall confidence < 0.5, replace ACTION REQUIRED with LOW CONFIDENCE and ask 
-  vernon_bella or bud916 for approval before dispatching steps 6 and 7.
+  2. Fetch fear_greed_index (7-day history to spot trend direction, not just current value)
+
+  3. Fetch funding rates: get_funding_rates
+     - Positive rates > 0.03% = longs overcrowded → expect correction → BEARISH signal
+     - Negative rates < -0.03% = shorts overcrowded → expect squeeze → BULLISH signal
+     - Include this in your MCB as "Funding Rate Signal"
+
+  4. Search recent news:
+     search_news for "crypto altcoin momentum breakout today"
+     search_news for "Bitcoin Ethereum market sentiment today"
+
+  5. Fetch Polymarket top markets:
+     get_polymarket_markets with min_volume=50000, limit=20
+
+  6. MOMENTUM ANALYSIS — for each token:
+     - Calculate outperformance vs BTC (token_24h_change - btc_24h_change)
+     - Tokens with outperformance > +1.5%: HIGH PRIORITY for TRADE_NOW
+     - Tokens with outperformance < -2.0%: consider SHORT/AVOID signals
+     - ALSO check funding rate signal: if funding is negative AND token is outperforming → VERY STRONG BUY
+
+  7. PREDICTION EDGE SCAN — for each Polymarket market:
+     - Estimate your probability using news + base rates
+     - Calculate edge = your_probability - market_probability
+     - Markets with edge > 5%: include a BET_NOW directive
+
+  7. Build the Market Context Brief (MCB) using standard format.
+     Include: overall sentiment, F&G reading, top 3 momentum signals, top 3 prediction edges.
+
+  8. DISPATCH TO TRADER — post to channel 1494494694057709789 using TRADE_NOW format:
+     For EACH token with momentum outperformance > 1.5% AND MCB confidence >= 0.60:
+     @benki_trader TRADE_NOW
+     Signal: [Bullish/Bearish] on [TOKEN/USDC]
+     Chain: [solana if SOL-ecosystem, polygon if EVM]
+     Action: [buy/sell]
+     Confidence: [X.X]
+     Reasoning: [2 sentences — price data + catalyst]
+     Portfolio value: [ending_balance_usd from benki_db_daily_pnl("YYYY-MM-DD"), or $1000 if unavailable]
+     Win probability: [0.0-1.0]
+     Suggested amount: [2% of portfolio_value, min $10]
+     MCB reference: [timestamp]
+
+  9. DISPATCH TO PREDICTOR — post to channel 1494494936182165705 using BET_NOW format:
+     For EACH market with edge > 5%:
+     @benki_predictor BET_NOW
+     Market: [exact question]
+     Platform: [polymarket or drift_bet]
+     Position: [Yes/No]
+     My probability: [X.X%]
+     Market probability: [X.X%]
+     Edge: [X.X%]
+     Suggested amount: [2% of portfolio_value, min $10]
+     Reasoning: [2 sentences]
+     MCB reference: [timestamp]
+
+  10. Log: benki_db_log_sentiment with tokens_analyzed=[full watchlist], dispatched_to=["trader","predictor"]
+  11. Log: benki_db_log_cron(agent="main", cron_name="market-research", status="success")
+
+  CRITICAL RULES:
+  - If confidence < 0.5 on any single trade signal, replace TRADE_NOW with LOW_CONFIDENCE and tag @vernon_bella
+  - If no tokens show >1.5% momentum outperformance, post the MCB but send NO TRADE_NOW — do not force trades
+  - When fetching benki_db_daily_pnl, pass the date as a plain string like "2026-04-27" (not a date object)
+  - If DB is unreachable, use portfolio_value=$1000 and note [DB UNAVAILABLE] in dispatch
+  - Look for CONTRARIAN opportunities: tokens down >5% on low volume with no negative catalyst = oversold bounce

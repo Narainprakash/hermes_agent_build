@@ -80,3 +80,28 @@ CREATE INDEX idx_risk_audit_timestamp ON risk_audit_log(timestamp);
 CREATE INDEX idx_risk_audit_agent ON risk_audit_log(agent);
 CREATE INDEX idx_sentiment_timestamp ON sentiment_briefs(timestamp);
 CREATE INDEX idx_cron_logs_timestamp ON cron_logs(timestamp);
+
+-- Prediction market tracking (for Brier score and calibration)
+CREATE TABLE IF NOT EXISTS predictions (
+    id                  SERIAL PRIMARY KEY,
+    agent               TEXT NOT NULL DEFAULT 'predictor',
+    timestamp           TIMESTAMPTZ DEFAULT NOW(),
+    platform            TEXT NOT NULL,                   -- 'polymarket' or 'drift_bet'
+    market_id           TEXT,
+    market_question     TEXT NOT NULL,
+    position            TEXT NOT NULL,                   -- 'yes' or 'no'
+    my_probability      NUMERIC NOT NULL,
+    market_probability  NUMERIC NOT NULL,
+    edge                NUMERIC NOT NULL,
+    amount              NUMERIC,
+    entry_price         NUMERIC,
+    resolution_date     DATE,
+    outcome             BOOLEAN,                         -- NULL = unresolved, true = win, false = loss
+    brier_score         NUMERIC,                         -- computed on resolution: (prob - outcome)^2
+    status              TEXT DEFAULT 'open',              -- 'open', 'closed_early', 'resolved_win', 'resolved_loss'
+    notes               TEXT
+);
+
+CREATE INDEX idx_predictions_status ON predictions(status);
+CREATE INDEX idx_predictions_platform ON predictions(platform);
+CREATE INDEX idx_predictions_timestamp ON predictions(timestamp);

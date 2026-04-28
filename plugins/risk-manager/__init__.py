@@ -18,6 +18,11 @@ MAX_DAILY_DRAWDOWN_PCT = 10.0   # Circuit breaker: 10% max daily loss
 KELLY_FRACTION = 0.5            # Half-Kelly for conservative sizing
 MIN_TRADE_AMOUNT = 0.01         # Minimum trade size in USD
 MAX_SINGLE_TRADE_PCT = 5.0      # Max 5% of portfolio on a single trade
+MAX_CHAIN_EXPOSURE_PCT = 30.0   # Max 30% of portfolio on any single chain
+MAX_OPEN_POSITIONS = 6          # Max 6 concurrent open positions
+
+# Session-level tracking for pre-trade enforcement
+_risk_check_approved_tokens = set()  # tracks which markets got approval this session
 
 
 def _get_db_url():
@@ -86,8 +91,9 @@ async def _get_current_drawdown():
         [today]
     )
 
+    # FIX — fail-closed:
     if isinstance(result, str) and result.startswith("DB_ERROR"):
-        return 0.0, False  # Fail open on DB error (conservative: log but allow)
+        return MAX_DAILY_DRAWDOWN_PCT, False  # ← blocks all trades when DB is down
 
     if result and len(result) > 0:
         row = result[0]
@@ -111,25 +117,41 @@ async def _log_risk_decision(agent, action, chain, market, amount, approved, rea
     )
 
 
-def _calculate_kelly(win_prob, win_ratio=2.0, loss_ratio=1.0):
+def _calculate_kelly(win_prob, trade_type="spot", entry_price=None,
+                     tp_pct=0.15, sl_pct=0.07):
     """
-    Calculate Kelly Criterion position size.
+    Calculate Kelly Criterion position size with correct win/loss ratios.
     Uses half-Kelly (KELLY_FRACTION = 0.5) for conservative sizing.
-    
+
+    For prediction markets: win_ratio is derived from entry price.
+      e.g. buying YES at 0.70 → win_ratio = (1/0.70 - 1) = 0.43
+    For spot trades: win_ratio is derived from TP/SL targets.
+      e.g. TP=+15%, SL=-7% → win_ratio = 15/7 = 2.14
+
     Args:
         win_prob: Probability of winning (0.0 - 1.0)
-        win_ratio: Ratio of profit to stake on win
-        loss_ratio: Ratio of loss to stake on loss
-    
+        trade_type: 'prediction' or 'spot'
+        entry_price: For predictions, the price paid (0.0-1.0)
+        tp_pct: For spot trades, take-profit % (e.g. 0.15 for 15%)
+        sl_pct: For spot trades, stop-loss % (e.g. 0.07 for 7%)
+
     Returns:
         Fraction of bankroll to risk (0.0 - MAX_SINGLE_TRADE_PCT/100)
     """
     if win_prob <= 0 or win_prob >= 1:
         return 0.0
 
+    if trade_type == "prediction" and entry_price and 0 < entry_price < 1:
+        # Prediction market: profit = (1/entry_price - 1) per dollar risked
+        b = (1.0 / entry_price) - 1.0
+    elif trade_type == "spot" and sl_pct > 0:
+        # Spot trade: reward/risk ratio from TP/SL
+        b = tp_pct / sl_pct
+    else:
+        # Fallback: conservative 1.5:1
+        b = 1.5
+
     # Kelly formula: f* = (p * b - q) / b
-    # where p = win_prob, q = 1-p, b = win_ratio/loss_ratio
-    b = win_ratio / loss_ratio
     q = 1.0 - win_prob
     kelly = (win_prob * b - q) / b
 
@@ -145,7 +167,7 @@ def _calculate_kelly(win_prob, win_ratio=2.0, loss_ratio=1.0):
 async def handle_risk_check(params, **kwargs):
     """
     Check if a trade is allowed under current risk limits.
-    
+
     MANDATORY before every trade/bet execution.
     The 10% drawdown limit is hardcoded and cannot be overridden.
     """
@@ -156,6 +178,10 @@ async def handle_risk_check(params, **kwargs):
     agent = params.get("agent", "unknown")
     win_probability = _parse_numeric(params.get("win_probability", 0.5))
     portfolio_value = _parse_numeric(params.get("portfolio_value", 0))
+    trade_type = params.get("trade_type", "spot")  # 'spot' or 'prediction'
+    entry_price = _parse_numeric(params.get("entry_price", 0))  # for predictions
+    tp_pct = _parse_numeric(params.get("tp_pct", 0.15))  # for spot
+    sl_pct = _parse_numeric(params.get("sl_pct", 0.07))   # for spot
 
     dry_run = os.environ.get("DRY_RUN", "true").lower() == "true"
 
@@ -211,7 +237,13 @@ async def handle_risk_check(params, **kwargs):
         })
 
     # ── Check 3: Kelly Criterion position sizing ─────────────────────
-    kelly_fraction = _calculate_kelly(win_probability)
+    kelly_fraction = _calculate_kelly(
+        win_probability,
+        trade_type=trade_type,
+        entry_price=entry_price if trade_type == "prediction" else None,
+        tp_pct=tp_pct,
+        sl_pct=sl_pct
+    )
     suggested_size = portfolio_value * kelly_fraction if portfolio_value > 0 else amount
     max_allowed = portfolio_value * (MAX_SINGLE_TRADE_PCT / 100.0) if portfolio_value > 0 else amount
 
@@ -247,6 +279,9 @@ async def handle_risk_check(params, **kwargs):
                               True, reason, current_drawdown, final_size,
                               remaining_budget if portfolio_value > 0 else 0.0)
 
+    # Track approval for pre-trade enforcement
+    _risk_check_approved_tokens.add(f"{agent}:{market}")
+
     return json.dumps({
         "approved": True,
         "reason": reason,
@@ -254,6 +289,7 @@ async def handle_risk_check(params, **kwargs):
         "current_drawdown_pct": current_drawdown,
         "circuit_breaker_hit": False,
         "kelly_fraction": kelly_fraction,
+        "trade_type": trade_type,
         "dry_run": dry_run
     })
 
@@ -266,7 +302,10 @@ def register(ctx):
         "description": (
             "MANDATORY pre-trade risk check. Must be called before EVERY trade or bet. "
             "Enforces a hardcoded 10% daily drawdown circuit breaker and calculates "
-            "Kelly Criterion position sizes. Returns approval status with reasoning."
+            "Kelly Criterion position sizes. Returns approval status with reasoning. "
+            "For prediction markets, set trade_type='prediction' and entry_price to the "
+            "market probability you are buying at. For spot trades, set trade_type='spot' "
+            "and provide tp_pct/sl_pct."
         ),
         "parameters": {
             "type": "object",
@@ -298,6 +337,22 @@ def register(ctx):
                 "portfolio_value": {
                     "type": "number",
                     "description": "Current total portfolio value in USD. Used for position sizing."
+                },
+                "trade_type": {
+                    "type": "string",
+                    "description": "'prediction' for prediction markets, 'spot' for DeFi trades. Affects Kelly calculation."
+                },
+                "entry_price": {
+                    "type": "number",
+                    "description": "For prediction markets: the market probability/price you are buying at (0.0-1.0)."
+                },
+                "tp_pct": {
+                    "type": "number",
+                    "description": "For spot trades: take-profit percentage as decimal (e.g. 0.15 for 15%). Default: 0.15."
+                },
+                "sl_pct": {
+                    "type": "number",
+                    "description": "For spot trades: stop-loss percentage as decimal (e.g. 0.07 for 7%). Default: 0.07."
                 }
             },
             "required": ["agent", "chain", "action", "amount", "market"]
@@ -306,12 +361,37 @@ def register(ctx):
 
     ctx.register_tool("risk_check", "benki_risk", risk_check_schema, handle_risk_check, is_async=True)
 
-    # --- Hook: audit ALL tool calls for safety ---
-    def on_tool_call(tool_name, params, result):
-        """Log when trade-related tools are called without risk_check."""
+    # --- Pre-trade guard: BLOCK trade tools unless risk_check was called ---
+    def pre_trade_guard(tool_name, params):
+        """
+        Enforce that risk_check was called before any trade execution tool.
+        Returns an error dict to block execution, or None to allow.
+        """
         trade_tools = {"solana_swap", "evm_swap", "polymarket_order", "drift_bet_order"}
         if tool_name in trade_tools:
-            print(f"[risk-manager] ⚠️  Trade tool '{tool_name}' was called. "
-                  f"Ensure risk_check was called first.")
+            market = params.get("market", params.get("market_id", "unknown"))
+            # Check if ANY risk_check approval exists in this session
+            if not _risk_check_approved_tokens:
+                print(f"[risk-manager] 🛑 BLOCKED: '{tool_name}' called without "
+                      f"ANY prior risk_check approval in this session.")
+                return json.dumps({
+                    "error": f"BLOCKED: You must call risk_check before {tool_name}. "
+                             f"No trade execution is allowed without risk manager approval.",
+                    "status": "blocked"
+                })
+            else:
+                print(f"[risk-manager] ✅ Trade tool '{tool_name}' proceeding — "
+                      f"risk_check was called this session.")
+        return None  # allow the call
 
-    ctx.register_hook("post_tool_call", on_tool_call)
+    # Register as pre_tool_call hook if available, else post_tool_call
+    try:
+        ctx.register_hook("pre_tool_call", pre_trade_guard)
+    except Exception:
+        # Fallback: post-call audit logging
+        def on_tool_call(tool_name, params, result):
+            trade_tools = {"solana_swap", "evm_swap", "polymarket_order", "drift_bet_order"}
+            if tool_name in trade_tools:
+                print(f"[risk-manager] ⚠️  Trade tool '{tool_name}' was called. "
+                      f"Ensure risk_check was called first.")
+        ctx.register_hook("post_tool_call", on_tool_call)

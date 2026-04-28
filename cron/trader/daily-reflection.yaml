@@ -1,0 +1,15 @@
+schedule: "0 22 * * *"
+prompt: |
+  CRON TRIGGER: Daily Trader Reflection
+
+  YOUR INSTRUCTIONS:
+  1. Run your `daily-reflection` procedure now.
+  2. Review ALL trades from today, calculate performance metrics.
+  3. Apply the automatic adjustment rules from Step 3 of the procedure.
+  4. Update MEMORY.md with the adjustment at the TOP.
+  5. Call benki_db_update_daily_pnl with final portfolio value for today.
+  6. After completing, call benki_db_log_cron(agent="trader", cron_name="daily-reflection", status="success").
+
+  CRITICAL: The strategy adjustments in Step 3 are NOT optional. If a rule triggers,
+  you MUST apply it and note it in MEMORY.md. These self-corrections are what
+  separate a profitable system from a losing one.

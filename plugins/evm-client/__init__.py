@@ -113,16 +113,22 @@ async def handle_evm_swap(params, **kwargs):
         # 4. Sign and broadcast
         # 5. Wait for confirmation
 
+        # TODO: Implement actual swap via Uniswap V3 / Quickswap / 1inch
+        # 1. Get quote from DEX router
+        # 2. Build the swap transaction
+        # 3. Estimate gas
+        # 4. Sign and broadcast
+        # 5. Wait for confirmation
         return json.dumps({
-            "status": "executed",
-            "message": f"Swapped {amount} {token_in} → {token_out} on Polygon",
+            "status": "failed",
+            "message": f"Live EVM swap not yet implemented for {amount} {token_in} → {token_out} on Polygon",
             "chain": "polygon",
             "token_in": token_in,
             "token_out": token_out,
             "amount": amount,
             "wallet": account.address,
-            "tx_hash": "IMPLEMENT_ACTUAL_SWAP_LOGIC",
-            "note": "Production swap logic needs DEX router integration"
+            "tx_hash": "",
+            "error": "DEX router integration required. Do NOT record this as a successful trade."
         })
     except Exception as e:
         return json.dumps({"error": str(e), "status": "failed"})

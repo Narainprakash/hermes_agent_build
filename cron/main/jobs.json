@@ -3,7 +3,7 @@
     {
       "id": "1e643f9c2b80",
       "name": "market-research",
-      "prompt": "You are Benki Main, orchestrator of the Benki crypto trading system.\n\nTASK: Run a full market research cycle and dispatch a Market Context Brief.\n\nSTEPS:\n1. Fetch live crypto prices: get_crypto_prices for ['bitcoin', 'ethereum', 'solana']\n2. Fetch Fear & Greed Index: get_fear_greed_index\n3. Search crypto news: search_news for 'Bitcoin Ethereum Solana market sentiment today'\n4. Build a structured Market Context Brief (MCB) with:\n   - Overall Sentiment (Bullish/Bearish/Neutral) with confidence score (0.0-1.0)\n   - Key Signals (from price data, fear/greed, news)\n   - Actionable for Trader (specific tokens/pairs with reasoning)\n   - Actionable for Predictor (specific markets/events with reasoning)\n   - Risk Advisory (current drawdown %, circuit breaker status from benki_db_daily_pnl)\n\n5. Log the brief to DB: benki_db_log_sentiment with tokens_analyzed=['BTC','ETH','SOL'], dispatched_to=['trader','predictor']\n6. Use the send_message tool to post the complete MCB to the #trading channel (channel ID: 1494494694057709789). The message MUST start with '@benki_trader ACTION REQUIRED — New Market Context Brief:' followed by the full MCB. Include specific token pairs, direction, and confidence score.\n7. Use the send_message tool to post the complete MCB to the #predictions channel (channel ID: 1494494936182165705). The message MUST start with '@benki_predictor ACTION REQUIRED — New Market Context Brief:' followed by the full MCB. Include specific Polymarket markets, your probability estimate vs market odds, and edge calculation.\n8. Log cron execution: benki_db_log_cron(agent='main', cron_name='market-research', status='success')\n\nCRITICAL: The messages in steps 6 and 7 must be explicit commands to trade/bet, not just summaries. Include the specific action you want each agent to take.",
+      "prompt": "You are Benki Main, orchestrator of the Benki crypto trading system.\n\nTASK: Run a full market research cycle and dispatch a Market Context Brief.\n\nSTEPS:\n1. Fetch live crypto prices: get_crypto_prices for ['bitcoin', 'ethereum', 'solana']\n2. Fetch Fear & Greed Index: get_fear_greed_index\n3. Search crypto news: search_news for 'Bitcoin Ethereum Solana market sentiment today'\n4. Build a structured Market Context Brief (MCB) with:\n   - Overall Sentiment (Bullish/Bearish/Neutral) with confidence score (0.0-1.0)\n   - Key Signals (from price data, fear/greed, news)\n   - Actionable for Trader (specific tokens/pairs with reasoning)\n   - Actionable for Predictor (specific markets/events with reasoning)\n   - Risk Advisory (current drawdown %, circuit breaker status from benki_db_daily_pnl)\n\n5. Log the brief to DB: benki_db_log_sentiment with tokens_analyzed=['BTC','ETH','SOL'], dispatched_to=['trader','predictor']\n6. Use the send_message tool to post the complete MCB to the #trading channel (channel ID: 1494494694057709789). The message MUST start with '@benki_trader ACTION REQUIRED \u2014 New Market Context Brief:' followed by the full MCB. Include specific token pairs, direction, and confidence score.\n7. Use the send_message tool to post the complete MCB to the #predictions channel (channel ID: 1494494936182165705). The message MUST start with '@benki_predictor ACTION REQUIRED \u2014 New Market Context Brief:' followed by the full MCB. Include specific Polymarket markets, your probability estimate vs market odds, and edge calculation.\n8. Log cron execution: benki_db_log_cron(agent='main', cron_name='market-research', status='success')\n\nCRITICAL: The messages in steps 6 and 7 must be explicit commands to trade/bet, not just summaries. Include the specific action you want each agent to take.",
       "skills": [
         "benki"
       ],
@@ -20,15 +20,15 @@
       "schedule_display": "every 240m",
       "repeat": {
         "times": null,
-        "completed": 3
+        "completed": 5
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-04-27T00:06:02.342066+00:00",
-      "next_run_at": "2026-04-27T06:10:45.194202+00:00",
-      "last_run_at": "2026-04-27T02:10:45.194202+00:00",
+      "next_run_at": "2026-04-28T04:49:53.853132+00:00",
+      "last_run_at": "2026-04-27T07:53:10.965800+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -61,15 +61,15 @@
       "schedule_display": "0 9 * * *",
       "repeat": {
         "times": null,
-        "completed": 3
+        "completed": 5
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-04-27T00:06:17.299286+00:00",
-      "next_run_at": "2026-04-27T09:00:00+00:00",
-      "last_run_at": "2026-04-27T02:09:46.138038+00:00",
+      "next_run_at": "2026-04-28T09:00:00+00:00",
+      "last_run_at": "2026-04-27T09:00:22.414067+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -102,15 +102,15 @@
       "schedule_display": "0 18 * * *",
       "repeat": {
         "times": null,
-        "completed": 3
+        "completed": 4
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-04-27T00:06:18.323361+00:00",
-      "next_run_at": "2026-04-27T18:00:00+00:00",
-      "last_run_at": "2026-04-27T02:10:01.493738+00:00",
+      "next_run_at": "2026-04-28T18:00:00+00:00",
+      "last_run_at": "2026-04-27T03:48:33.580873+00:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -124,5 +124,5 @@
       "enabled_toolsets": null
     }
   ],
-  "updated_at": "2026-04-27T02:10:45.198992+00:00"
+  "updated_at": "2026-04-28T00:49:53.867203+00:00"
 }

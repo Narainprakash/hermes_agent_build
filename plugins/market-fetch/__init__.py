@@ -38,6 +38,13 @@ def _fetch_text(url: str, timeout: int = 10) -> str:
     with urllib.request.urlopen(req, timeout=timeout, context=_CTX) as r:
         return r.read().decode("utf-8", errors="replace")
 
+def handle_get_funding_rates(params, **kwargs):
+    url = "https://fapi.binance.com/fapi/v1/premiumIndex"
+    data = _fetch(url)
+    return json.dumps([
+        {"symbol": d["symbol"], "lastFundingRate": float(d["lastFundingRate"]) * 100}
+        for d in data if d["symbol"] in ["BTCUSDT","ETHUSDT","SOLUSDT"]
+    ])
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Tool Handlers
@@ -346,6 +353,20 @@ def register(ctx):
             "required": ["url"]
         }
     }, handle_fetch_url)
+
+    ctx.register_tool("get_funding_rates", "benki_market", {
+        "name": "get_funding_rates",
+        "description": (
+            "Fetch perpetual futures funding rates from Binance for BTC, ETH, SOL. "
+            "Positive rate = longs pay shorts (overcrowded longs → correction risk). "
+            "Negative rate = shorts pay longs (overcrowded shorts → squeeze risk). "
+            "Rates are expressed as percentage. Extreme values (>0.03% or <-0.03%) are strong signals."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {}
+        }
+    }, handle_get_funding_rates)
 
     ctx.register_tool("get_fear_greed_index", "benki_market", {
         "name": "get_fear_greed_index",

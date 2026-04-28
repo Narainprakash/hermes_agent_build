@@ -1,0 +1,7 @@
+schedule: "0 0 * * *"
+prompt: |
+  CRON TRIGGER: Daily P&L Reset
+  
+  YOUR INSTRUCTIONS:
+  1. Call benki_db_reset_daily_pnl to rollover yesterday's ending balance to today's starting balance.
+  2. Call benki_db_log_cron with agent="main", cron_name="daily-pnl-reset", status="success" if successful.

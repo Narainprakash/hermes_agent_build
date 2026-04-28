@@ -104,6 +104,24 @@ async def handle_solana_swap(params, **kwargs):
                     if resp.status == 200:
                         quote = await resp.json()
                         out_amount = int(quote.get("outAmount", 0)) / 1e6
+                        price_impact = quote.get("priceImpactPct", "0")
+                        try:
+                            impact_pct = float(price_impact)
+                        except (ValueError, TypeError):
+                            impact_pct = 0.0
+
+                        # H5: Warn on high slippage
+                        slippage_warning = ""
+                        if impact_pct > 1.0:
+                            slippage_warning = (
+                                f"⚠️ HIGH SLIPPAGE: {impact_pct:.2f}% price impact. "
+                                f"Consider reducing position size or using a more liquid pair."
+                            )
+                        elif impact_pct > 0.5:
+                            slippage_warning = (
+                                f"⚡ Moderate slippage: {impact_pct:.2f}% price impact."
+                            )
+
                         return json.dumps({
                             "status": "dry_run",
                             "message": f"DRY RUN: Would swap {amount} → {out_amount} via Jupiter",
@@ -112,7 +130,8 @@ async def handle_solana_swap(params, **kwargs):
                             "token_out": token_out,
                             "amount_in": amount,
                             "amount_out": out_amount,
-                            "price_impact": quote.get("priceImpactPct", "unknown"),
+                            "price_impact_pct": impact_pct,
+                            "slippage_warning": slippage_warning,
                             "route": quote.get("routePlan", []),
                             "tx_hash": "dry_run_no_tx"
                         })

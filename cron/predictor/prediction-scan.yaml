@@ -1,0 +1,19 @@
+schedule: "30 */3 * * *"
+prompt: |
+  CRON TRIGGER: Independent Prediction Market Scan
+
+  YOUR INSTRUCTIONS:
+  1. Read MEMORY.md — check CALIBRATION STATUS at the top.
+     If it says "PAUSED" or active edge minimum is "ZERO": post that you are paused and STOP.
+  2. Run your `polymarket-scan` procedure now.
+     - Scan BOTH Polymarket AND Drift BET for opportunities.
+     - Do NOT wait for a BET_NOW from benki_main — find your own edges.
+     - Use the active edge minimum from MEMORY.md (default 5% if not set).
+  3. For any market where you find sufficient edge, follow the full risk_check → execute → log flow.
+  4. After completing, call benki_db_log_cron(agent="predictor", cron_name="prediction-scan", status="success").
+
+  RULES:
+  - This is your OWN independent scan — you do NOT need orchestrator approval.
+  - Still MUST call risk_check before every bet.
+  - Respect your current Brier-score-based adjustments from daily-reflection.
+  - If this is your first scan of the day, also run daily-reflection first to update calibration.

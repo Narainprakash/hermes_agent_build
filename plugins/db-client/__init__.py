@@ -166,6 +166,31 @@ async def handle_log_sentiment(params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
+async def handle_reset_daily_pnl(params, **kwargs):
+    """Reset daily P&L starting balance from previous day."""
+    db_url = _get_db_url()
+    if not db_url:
+        return json.dumps({"error": "BENKI_DB_URL not configured"})
+
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(db_url)
+        try:
+            await conn.execute(
+                """INSERT INTO daily_pnl (date, starting_balance_usd)
+                   VALUES (CURRENT_DATE, (
+                     SELECT ending_balance_usd FROM daily_pnl
+                     WHERE date = CURRENT_DATE - 1
+                   ))
+                   ON CONFLICT (date) DO NOTHING;"""
+            )
+            return json.dumps({"success": True, "message": "Daily P&L starting balance reset applied"})
+        finally:
+            await conn.close()
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 async def handle_log_cron(params, **kwargs):
     """Log a cron execution to the database."""
     db_url = _get_db_url()
@@ -185,6 +210,81 @@ async def handle_log_cron(params, **kwargs):
                 params.get("details", "")
             )
             return json.dumps({"success": True, "message": "Cron log recorded"})
+        finally:
+            await conn.close()
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+async def handle_update_daily_pnl(params, **kwargs):
+    """
+    Update daily P&L with current portfolio value, realized/unrealized PnL,
+    and compute drawdown percentage. CRITICAL for circuit breaker to function.
+    """
+    db_url = _get_db_url()
+    if not db_url:
+        return json.dumps({"error": "BENKI_DB_URL not configured"})
+
+    try:
+        import asyncpg
+        from datetime import datetime
+        conn = await asyncpg.connect(db_url)
+        try:
+            today = date.today()
+            ending_balance = float(params.get("ending_balance_usd", 0))
+            realized_pnl = float(params.get("realized_pnl", 0))
+            unrealized_pnl = float(params.get("unrealized_pnl", 0))
+            trades_executed = int(params.get("trades_executed", 0))
+            trades_rejected = int(params.get("trades_rejected", 0))
+
+            # Get starting balance for drawdown calculation
+            rows = await conn.fetch(
+                "SELECT starting_balance_usd, max_drawdown_pct FROM daily_pnl WHERE date = $1", today
+            )
+            if rows and rows[0]["starting_balance_usd"]:
+                starting = float(rows[0]["starting_balance_usd"])
+                drawdown_pct = max(0.0, (starting - ending_balance) / starting * 100) if starting > 0 else 0.0
+                prev_max_dd = float(rows[0]["max_drawdown_pct"] or 0)
+                max_dd = max(drawdown_pct, prev_max_dd)
+            else:
+                starting = ending_balance  # First update of the day
+                drawdown_pct = 0.0
+                max_dd = 0.0
+
+            # Upsert — preserve max_drawdown across updates
+            await conn.execute(
+                """INSERT INTO daily_pnl
+                   (date, starting_balance_usd, ending_balance_usd, realized_pnl,
+                    unrealized_pnl, drawdown_pct, max_drawdown_pct,
+                    trades_executed, trades_rejected)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                   ON CONFLICT (date) DO UPDATE SET
+                     ending_balance_usd = $3,
+                     realized_pnl = COALESCE(daily_pnl.realized_pnl, 0) + $4,
+                     unrealized_pnl = $5,
+                     drawdown_pct = $6,
+                     max_drawdown_pct = GREATEST(COALESCE(daily_pnl.max_drawdown_pct, 0), $7),
+                     trades_executed = COALESCE(daily_pnl.trades_executed, 0) + $8,
+                     trades_rejected = COALESCE(daily_pnl.trades_rejected, 0) + $9,
+                     circuit_breaker_hit = CASE WHEN $6 >= 10.0 THEN TRUE
+                                               ELSE daily_pnl.circuit_breaker_hit END""",
+                today, starting, ending_balance, realized_pnl, unrealized_pnl,
+                drawdown_pct, max_dd, trades_executed, trades_rejected
+            )
+
+            cb_msg = ""
+            if drawdown_pct >= 10.0:
+                cb_msg = " ⚠️ CIRCUIT BREAKER TRIGGERED — 10% drawdown reached!"
+
+            return json.dumps({
+                "success": True,
+                "message": f"Daily P&L updated. Drawdown: {drawdown_pct:.2f}%{cb_msg}",
+                "date": str(today),
+                "starting_balance_usd": starting,
+                "ending_balance_usd": ending_balance,
+                "drawdown_pct": round(drawdown_pct, 2),
+                "circuit_breaker_hit": drawdown_pct >= 10.0
+            })
         finally:
             await conn.close()
     except Exception as e:
@@ -280,4 +380,50 @@ def register(ctx):
             "required": ["agent", "cron_name"]
         }
     }, handle_log_cron, is_async=True)
+
+    # ── Reset Daily P&L ──
+    ctx.register_tool("benki_db_reset_daily_pnl", "benki_db", {
+        "name": "benki_db_reset_daily_pnl",
+        "description": "Roll over the previous day's ending balance to today's starting balance in the daily_pnl table.",
+        "parameters": {
+            "type": "object",
+            "properties": {}
+        }
+    }, handle_reset_daily_pnl, is_async=True)
+
+    # ── Update Daily P&L (CRITICAL for circuit breaker) ──
+    ctx.register_tool("benki_db_update_daily_pnl", "benki_db", {
+        "name": "benki_db_update_daily_pnl",
+        "description": (
+            "Update today's daily P&L with current portfolio value and compute drawdown. "
+            "MUST be called after every trade execution and during hourly position reviews. "
+            "This is what makes the circuit breaker work — without it, drawdown is always 0%."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ending_balance_usd": {
+                    "type": "number",
+                    "description": "Current total portfolio value in USD (cash + open positions)"
+                },
+                "realized_pnl": {
+                    "type": "number",
+                    "description": "P&L from closed trades this update (can be 0 if just updating balance)"
+                },
+                "unrealized_pnl": {
+                    "type": "number",
+                    "description": "Total unrealized P&L from open positions"
+                },
+                "trades_executed": {
+                    "type": "integer",
+                    "description": "Number of trades executed since last update (default: 0)"
+                },
+                "trades_rejected": {
+                    "type": "integer",
+                    "description": "Number of trades rejected since last update (default: 0)"
+                }
+            },
+            "required": ["ending_balance_usd"]
+        }
+    }, handle_update_daily_pnl, is_async=True)
 
