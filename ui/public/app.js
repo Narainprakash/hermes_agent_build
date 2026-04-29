@@ -13,6 +13,7 @@ const POLL_PNL       = 60_000;   // 60 s  — P&L chart
 const POLL_SENTIMENT = 60_000;   // 60 s  — sentiment briefs
 const POLL_CRON      = 15_000;   // 15 s  — cron logs
 const POLL_LLM       = 60_000;   // 60 s  — llm usage
+const POLL_CMDS      = 15_000;   // 15 s  — directives
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -339,6 +340,79 @@ async function refreshTrades() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// Agent Commands
+// ══════════════════════════════════════════════════════════════════════════
+async function refreshCommands() {
+  const commands = await fetchJSON('/api/commands');
+  const tbody  = el('commandsBody');
+
+  if (!commands || commands.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No directives recorded yet</td></tr>';
+    el('commandsLastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    return;
+  }
+
+  tbody.innerHTML = commands.map(c => {
+    let details = '—';
+    if (c.directive_json) {
+      if (c.directive_type === 'TRADE_NOW') {
+        details = `${c.directive_json.action || ''} ${c.directive_json.asset || ''}`;
+      } else if (c.directive_type === 'BET_NOW') {
+        details = `${c.directive_json.position || ''} on ${c.directive_json.market || ''}`;
+      } else {
+        details = JSON.stringify(c.directive_json).substring(0, 30) + '...';
+      }
+    }
+    
+    let respTime = '—';
+    if (c.response_at) {
+      respTime = fmtTime(c.response_at);
+    }
+    
+    return `
+      <tr>
+        <td>${fmtTime(c.timestamp)}</td>
+        <td>${c.commander ?? '—'}</td>
+        <td>${c.worker ?? '—'}</td>
+        <td><span class="badge badge-${c.directive_type === 'TRADE_NOW' ? 'buy' : 'bet_yes'}">${c.directive_type ?? '—'}</span></td>
+        <td title='${escHtml(JSON.stringify(c.directive_json))}'>${escHtml(details)}</td>
+        <td><span class="badge badge-${c.response_status === 'executed' || c.response_status === 'placed' ? 'executed' : (c.response_status ? 'failed' : 'pending')}">${c.response_status ?? 'pending'}</span></td>
+        <td>${respTime}</td>
+      </tr>
+    `;
+  }).join('');
+
+  el('commandsLastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Growth Targets
+// ══════════════════════════════════════════════════════════════════════════
+async function refreshGrowth() {
+  const growth = await fetchJSON('/api/growth');
+  const wrapper = el('growthStats');
+  
+  if (!growth) {
+    wrapper.classList.add('hidden');
+    return;
+  }
+  
+  wrapper.classList.remove('hidden');
+  
+  el('growthTarget').textContent = fmtUSD(growth.target_capital);
+  el('growthProgress').textContent = fmtUSD(growth.current_capital) + ' / ' + fmtUSD(growth.target_capital);
+  
+  const statusEl = el('growthStatus');
+  if (growth.on_track) {
+    statusEl.textContent = 'ON TRACK';
+    statusEl.className = 'growth-value on-track';
+  } else {
+    statusEl.textContent = 'BEHIND';
+    statusEl.className = 'growth-value behind';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // Sentiment Briefs
 // ══════════════════════════════════════════════════════════════════════════
 async function refreshSentiment() {
@@ -469,8 +543,10 @@ function start() {
   // Initial fetches
   refreshStatus();
   refreshTrades();
+  refreshCommands();
   refreshRisk();
   refreshPnl();
+  refreshGrowth();
   refreshSentiment();
   refreshCron();
   refreshLlm();
@@ -479,8 +555,10 @@ function start() {
   // Polling intervals
   setInterval(refreshStatus,    POLL_STATUS);
   setInterval(refreshTrades,    POLL_TRADES);
+  setInterval(refreshCommands,  POLL_CMDS);
   setInterval(refreshRisk,      POLL_RISK);
   setInterval(refreshPnl,       POLL_PNL);
+  setInterval(refreshGrowth,    POLL_PNL);
   setInterval(refreshSentiment, POLL_SENTIMENT);
   setInterval(refreshCron,      POLL_CRON);
   setInterval(refreshLlm,       POLL_LLM);

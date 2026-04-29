@@ -68,13 +68,28 @@ For any position older than 48 hours with no TP/SL hit:
 - If positive catalyst found: extend hold, tighten SL to -3% from current
 
 ## Step 8: Post Position Summary
-After processing all positions, post in #trading:
+After processing all positions, post the summary in #trading in STRICT JSON format, tagging @benki_main:
 
-📊 **Position Summary** — [timestamp]
-[For each position:]
-  [TOKEN]: Entry $[x] → Current $[y] = [+/-Z%] | TP $[a] | SL $[b] | [HOLD/PARTIAL EXIT/CLOSED]
-**Realized P&L this session:** $[total_realized]
-**Open P&L:** $[total_open_unrealized]
+@benki_main
+```json
+{
+  "report": "POSITION_SUMMARY",
+  "timestamp": "[timestamp]",
+  "realized_pnl_session": [total_realized],
+  "open_unrealized_pnl": [total_open_unrealized],
+  "positions": [
+    {
+      "asset": "[TOKEN]",
+      "entry_price": [x],
+      "current_price": [y],
+      "pnl_pct": [Z],
+      "tp_target": [a],
+      "sl_target": [b],
+      "action_taken": "[HOLD/PARTIAL EXIT/CLOSED]"
+    }
+  ]
+}
+```
 
 ## Step 8.5: Update Daily P&L (MANDATORY — circuit breaker depends on this)
 After computing all position values, you MUST update the daily P&L tracker:

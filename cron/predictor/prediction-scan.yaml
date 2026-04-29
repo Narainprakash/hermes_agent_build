@@ -15,5 +15,6 @@ prompt: |
   RULES:
   - This is your OWN independent scan — you do NOT need orchestrator approval.
   - Still MUST call risk_check before every bet.
+  - Post results in #predictor tagging @benki_main using STRICT JSON format (`BET_RESULT`).
   - Respect your current Brier-score-based adjustments from daily-reflection.
   - If this is your first scan of the day, also run daily-reflection first to update calibration.

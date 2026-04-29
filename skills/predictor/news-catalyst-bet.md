@@ -89,8 +89,29 @@ Record in MEMORY.md:
 - Target: re-evaluate if market probability moves >10% — may want to exit early
 
 ## Step 8: Post Report
-Use the standard Prediction Report format.
-Add a field: **Catalyst:** [1-sentence description of the news event]
+Post the JSON Execution Report in #predictor tagging @benki_main.
+
+Report format MUST BE STRICT JSON fenced in ```json:
+@benki_main
+```json
+{
+  "report": "BET_RESULT",
+  "directive_ref": "BET_NOW",
+  "market": "[question]",
+  "platform": "[polymarket/drift_bet]",
+  "position": "[yes/no]",
+  "status": "[placed|dry_run|rejected|below_edge]",
+  "amount": [amount],
+  "my_probability": [my_prob],
+  "market_probability": [market_prob],
+  "edge": [edge],
+  "kelly_fraction": [X.XX],
+  "risk_check": "[approved or rejected reason]",
+  "brier_score_running": [X.XX],
+  "catalyst": "[1-sentence description of the news event]",
+  "error": null
+}
+```
 
 ## Anti-patterns to Avoid
 - Do NOT bet on markets resolving in >90 days unless edge is >20%

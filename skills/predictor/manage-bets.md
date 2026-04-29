@@ -23,5 +23,21 @@ For each open bet:
 For each early exit:
 - Call `risk_check` with action="sell_bet".
 - Execute via `polymarket_order` or `drift_bet_order` to close the position.
-- Log to PostgreSQL and post a report in #predictions.
+- Log to PostgreSQL.
 - Update `MEMORY.md` with the resolution.
+- Post a JSON report in #predictor tagging @benki_main.
+
+@benki_main
+```json
+{
+  "report": "BET_MANAGEMENT_SUMMARY",
+  "timestamp": "[timestamp]",
+  "exits": [
+    {
+      "market": "[question]",
+      "action": "[EARLY_EXIT|CLOSED_RESOLVED]",
+      "pnl_amount": [pnl_amount]
+    }
+  ]
+}
+```

@@ -157,6 +157,22 @@
             <span class="pnl-value" id="pnlTotal">—</span>
           </div>
         </div>
+        
+        <div class="growth-stats hidden" id="growthStats">
+          <div class="growth-stat">
+            <span class="growth-label">Target:</span>
+            <span class="growth-value" id="growthTarget">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-label">Progress:</span>
+            <span class="growth-value" id="growthProgress">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-label">Status:</span>
+            <span class="growth-value" id="growthStatus">—</span>
+          </div>
+        </div>
+
         <div class="chart-container">
           <canvas id="pnlChart" aria-label="Portfolio P&L chart"></canvas>
           <div class="chart-empty hidden" id="pnlEmpty">No P&amp;L data yet</div>
@@ -231,6 +247,32 @@
           </thead>
           <tbody id="tradesBody">
             <tr><td colspan="8" class="table-empty">Loading trades…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Agent Directives ────────────────────────────────────────────────── -->
+    <section class="glass-card" aria-labelledby="commands-heading">
+      <div class="card-header">
+        <h2 id="commands-heading" class="card-title">Agent Directives</h2>
+        <span class="last-updated" id="commandsLastUpdated">–</span>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table" id="commandsTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Commander</th>
+              <th>Worker</th>
+              <th>Directive</th>
+              <th>Details</th>
+              <th>Status</th>
+              <th>Response Time</th>
+            </tr>
+          </thead>
+          <tbody id="commandsBody">
+            <tr><td colspan="7" class="table-empty">Loading directives…</td></tr>
           </tbody>
         </table>
       </div>

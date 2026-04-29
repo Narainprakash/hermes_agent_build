@@ -38,8 +38,8 @@ Format using the MCB template in your system prompt:
 
 ## Step 5: Dispatch
 1. Post the MCB in #general (your home channel)
-2. Use `send_message` to post to #trading channel @mentioning @benki_trader
-3. Use `send_message` to post to #predictions channel @mentioning @benki_predictor
+2. Use `send_message` to post to #trading channel @mentioning @benki_trader with a STRICT JSON `TRADE_NOW` block
+3. Use `send_message` to post to #predictor channel @mentioning @benki_predictor with a STRICT JSON `BET_NOW` block
 4. Log the brief using `benki_db_log_sentiment`
 
 ## Step 6: Update Memory

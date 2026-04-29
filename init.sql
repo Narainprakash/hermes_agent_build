@@ -105,3 +105,37 @@ CREATE TABLE IF NOT EXISTS predictions (
 CREATE INDEX idx_predictions_status ON predictions(status);
 CREATE INDEX idx_predictions_platform ON predictions(platform);
 CREATE INDEX idx_predictions_timestamp ON predictions(timestamp);
+
+-- Commander-Worker directive tracking
+CREATE TABLE IF NOT EXISTS agent_commands (
+    id              SERIAL PRIMARY KEY,
+    timestamp       TIMESTAMPTZ DEFAULT NOW(),
+    commander       TEXT NOT NULL DEFAULT 'main',
+    worker          TEXT NOT NULL,           -- 'trader' or 'predictor'
+    directive_type  TEXT NOT NULL,           -- 'TRADE_NOW' or 'BET_NOW'
+    directive_json  JSONB NOT NULL,
+    response_json   JSONB,
+    response_status TEXT,                    -- 'executed', 'rejected', 'skipped', etc.
+    response_at     TIMESTAMPTZ,
+    feedback_loop_closed BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX idx_agent_commands_worker ON agent_commands(worker);
+CREATE INDEX idx_agent_commands_status ON agent_commands(response_status);
+
+-- Growth target tracking
+CREATE TABLE IF NOT EXISTS growth_targets (
+    id              SERIAL PRIMARY KEY,
+    period_start    DATE NOT NULL,
+    period_end      DATE NOT NULL,
+    starting_capital NUMERIC NOT NULL,
+    target_capital  NUMERIC NOT NULL,
+    current_capital NUMERIC,
+    target_daily_pct NUMERIC,
+    on_track        BOOLEAN DEFAULT TRUE
+);
+
+-- Seed Initial P&L row
+INSERT INTO daily_pnl (date, starting_balance_usd, ending_balance_usd, realized_pnl, unrealized_pnl, drawdown_pct, max_drawdown_pct)
+VALUES (CURRENT_DATE, 200, 200, 0, 0, 0, 0)
+ON CONFLICT DO NOTHING;

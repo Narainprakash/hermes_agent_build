@@ -372,6 +372,38 @@ body::before {
   font-size: 0.85rem;
 }
 
+/* Growth Stats */
+.growth-stats {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.growth-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.growth-label {
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+}
+
+.growth-value {
+  color: var(--text-1);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+}
+
+.growth-value.on-track { color: var(--green); }
+.growth-value.behind { color: var(--amber); }
+
 /* ── Risk Card ──────────────────────────────────────────────────────────── */
 .risk-card { display: flex; flex-direction: column; gap: 20px; }
 

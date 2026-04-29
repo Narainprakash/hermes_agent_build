@@ -45,17 +45,21 @@ For each BULLISH or STRONG BULLISH token:
 ## Step 5: Build TRADE_NOW Directives
 For each token that passes Steps 2-4 with final_confidence >= 0.60:
 
-```
-@benki_trader TRADE_NOW
-Signal: [Bullish/Bearish] on [TOKEN]/USDC
-Chain: [solana for SOL-ecosystem / polygon for EVM tokens]
-Action: [buy/sell]
-Confidence: [final_confidence]
-Reasoning: [Sentence 1: momentum_score + F&G context. Sentence 2: catalyst or lack thereof.]
-Portfolio value: [ending_balance_usd from benki_db_daily_pnl or $1000 fallback]
-Win probability: [use table below]
-Suggested amount: [2% of portfolio_value, min $10, max $50 for speculative tokens]
-MCB reference: [timestamp]
+```json
+{
+  "directive": "TRADE_NOW",
+  "asset": "[TOKEN]/USDC",
+  "chain": "[solana/polygon]",
+  "action": "[buy/sell]",
+  "confidence": "[final_confidence]",
+  "win_probability": "[use table below]",
+  "portfolio_value": "[ending_balance_usd from benki_db_daily_pnl or 200 fallback]",
+  "suggested_amount": "[2% of portfolio_value, min 10, max 50 for speculative tokens]",
+  "tp_pct": 0.15,
+  "sl_pct": 0.07,
+  "reasoning": "[Sentence 1: momentum_score + F&G context. Sentence 2: catalyst or lack thereof.]",
+  "mcb_timestamp": "[timestamp]"
+}
 ```
 
 **Win Probability Estimation (research-backed):**

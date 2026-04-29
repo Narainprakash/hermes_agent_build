@@ -17,6 +17,7 @@ description: End-of-day performance review, lessons learned, and memory update
 - Profit factor: (gross profits / gross losses)
 - Max drawdown hit during the day
 - Sentiment brief accuracy: compare morning predictions to actual price movements
+- Progress toward 30-day 2x growth target (Targeting ~2.3% daily compound)
 
 ## Step 3: Identify Lessons
 Analyze each losing trade:
@@ -41,6 +42,7 @@ Post a daily performance summary to #general:
 
 📊 **Daily Performance Report** — [date]
 **P&L:** $[amount] ([%])
+**Growth Target Progress:** [Current balance vs target balance]
 **Trades:** [executed] / [rejected by risk_check]
 **Win Rate:** [X%]
 **Drawdown:** [X%] / 10% limit

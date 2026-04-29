@@ -124,9 +124,30 @@ For each market with sufficient edge:
 ```
 
 ## Step 9: Post Report
-Post Prediction Report for each bet placed in #agent-logs (1494524548815655033).
-At end of scan, post a summary:
+Post the JSON Execution Report for each bet placed in #predictor tagging @benki_main.
 
+Report format MUST BE STRICT JSON fenced in ```json:
+@benki_main
+```json
+{
+  "report": "BET_RESULT",
+  "directive_ref": "BET_NOW",
+  "market": "[question]",
+  "platform": "[polymarket/drift_bet]",
+  "position": "[yes/no]",
+  "status": "[placed|dry_run|rejected|below_edge]",
+  "amount": [amount],
+  "my_probability": [my_prob],
+  "market_probability": [market_prob],
+  "edge": [edge],
+  "kelly_fraction": [X.XX],
+  "risk_check": "[approved or rejected reason]",
+  "brier_score_running": [X.XX],
+  "error": null
+}
+```
+
+At the end of the scan, you can post a summary:
 🔮 **Prediction Scan Summary** — [timestamp]
 **Markets scanned:** [Polymarket: X | Drift BET: Y]
 **Bets placed:** [count]

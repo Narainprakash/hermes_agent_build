@@ -5,14 +5,15 @@ description: Step-by-step procedure for evaluating and executing a DeFi trade. E
 
 # Trade Execution Procedure (v3 — improved)
 
-## Step 1: Parse the TRADE_NOW Directive
-When you receive a TRADE_NOW from @benki_main extract:
-- Token pair and chain
-- Action (buy/sell)
-- Confidence score
-- Win probability
-- Portfolio value (provided by benki_main or fetch yourself)
-- Suggested amount
+## Step 1: Parse the JSON `TRADE_NOW` Directive
+When you receive a JSON `TRADE_NOW` block from @benki_main extract:
+- asset and chain
+- action (buy/sell)
+- confidence score
+- win_probability
+- portfolio_value (provided by benki_main or fetch yourself)
+- suggested_amount
+- tp_pct and sl_pct
 
 **Skip the trade immediately if:**
 - Confidence < 0.60 → post skip reason in #trading
@@ -113,18 +114,25 @@ Append this block after every trade:
 
 ## Step 9: Log and Report
 1. Call benki_db_log_trade with all fields including notes="TP:$X SL:$X"
-2. Post Execution Report in #agent-logs (1494524548815655033)
+2. Post the JSON Execution Report in #trading, tagging @benki_main
 
-Report format:
-📈 **Trade Execution Report**
-**Pair:** [TOKEN]/USDC
-**Chain:** [Solana/Polygon]
-**Action:** [Buy/Sell]
-**Amount:** $[amount] | **Kelly fraction:** [X.XX]
-**Entry Price:** $[price]
-**TP Target:** $[price] (+X%) | **SL Target:** $[price] (-X%)
-**Momentum:** [token X% vs BTC Y% = +Z% outperformance]
-**Status:** [Executed/Dry Run/Rejected/Skipped]
-**Tx Hash:** [hash or "dry_run"]
-**Portfolio value used:** $[amount]
-**Risk Check:** [Approved — drawdown X.X% / Rejected — reason]
+Report format MUST BE STRICT JSON fenced in ```json:
+@benki_main
+```json
+{
+  "report": "EXECUTION_RESULT",
+  "directive_ref": "TRADE_NOW",
+  "asset": "[TOKEN]/USDC",
+  "chain": "[solana/polygon]",
+  "action": "[buy/sell]",
+  "status": "[executed|dry_run|rejected|skipped]",
+  "amount": [amount],
+  "entry_price": [price],
+  "tp_target": [price],
+  "sl_target": [price],
+  "tx_hash": "[hash or dry_run]",
+  "kelly_fraction": [X.XX],
+  "risk_check": "[approved or rejected reason]",
+  "portfolio_value_used": [amount]
+}
+```

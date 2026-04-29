@@ -158,6 +158,28 @@ app.get('/api/cron', async (_req, res) => {
   res.json(rows);
 });
 
+// Agent Commands
+app.get('/api/commands', async (_req, res) => {
+  const rows = await safeQuery(
+    `SELECT id, timestamp, commander, worker, directive_type, directive_json, response_json, response_status, response_at, feedback_loop_closed
+     FROM   agent_commands
+     ORDER  BY timestamp DESC
+     LIMIT  50`
+  );
+  res.json(rows);
+});
+
+// Growth Targets
+app.get('/api/growth', async (_req, res) => {
+  const rows = await safeQuery(
+    `SELECT id, period_start, period_end, starting_capital, target_capital, current_capital, target_daily_pct, on_track
+     FROM   growth_targets
+     ORDER  BY id DESC
+     LIMIT  1`
+  );
+  res.json(rows[0] || null);
+});
+
 // LLM Token Usage (OpenRouter API)
 app.get('/api/llm-usage', async (_req, res) => {
   const openRouterKey = process.env.OPENROUTER_API_KEY;

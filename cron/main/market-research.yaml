@@ -37,31 +37,43 @@ prompt: |
   7. Build the Market Context Brief (MCB) using standard format.
      Include: overall sentiment, F&G reading, top 3 momentum signals, top 3 prediction edges.
 
-  8. DISPATCH TO TRADER — post to channel 1494494694057709789 using TRADE_NOW format:
+  8. DISPATCH TO TRADER — post to channel 1494494694057709789 using STRICT JSON fenced in ```json:
      For EACH token with momentum outperformance > 1.5% AND MCB confidence >= 0.60:
-     @benki_trader TRADE_NOW
-     Signal: [Bullish/Bearish] on [TOKEN/USDC]
-     Chain: [solana if SOL-ecosystem, polygon if EVM]
-     Action: [buy/sell]
-     Confidence: [X.X]
-     Reasoning: [2 sentences — price data + catalyst]
-     Portfolio value: [ending_balance_usd from benki_db_daily_pnl("YYYY-MM-DD"), or $1000 if unavailable]
-     Win probability: [0.0-1.0]
-     Suggested amount: [2% of portfolio_value, min $10]
-     MCB reference: [timestamp]
+     @benki_trader
+     ```json
+     {
+       "directive": "TRADE_NOW",
+       "asset": "[TOKEN/USDC]",
+       "chain": "[solana/polygon]",
+       "action": "[buy/sell]",
+       "confidence": [X.X],
+       "win_probability": [0.0-1.0],
+       "portfolio_value": [ending_balance_usd from benki_db_daily_pnl or 200],
+       "suggested_amount": [2% of portfolio_value, min 10],
+       "tp_pct": 0.15,
+       "sl_pct": 0.07,
+       "reasoning": "[2 sentences]",
+       "mcb_timestamp": "[timestamp]"
+     }
+     ```
 
-  9. DISPATCH TO PREDICTOR — post to channel 1494494936182165705 using BET_NOW format:
+  9. DISPATCH TO PREDICTOR — post to channel 1494494936182165705 using STRICT JSON fenced in ```json:
      For EACH market with edge > 5%:
-     @benki_predictor BET_NOW
-     Market: [exact question]
-     Platform: [polymarket or drift_bet]
-     Position: [Yes/No]
-     My probability: [X.X%]
-     Market probability: [X.X%]
-     Edge: [X.X%]
-     Suggested amount: [2% of portfolio_value, min $10]
-     Reasoning: [2 sentences]
-     MCB reference: [timestamp]
+     @benki_predictor
+     ```json
+     {
+       "directive": "BET_NOW",
+       "market": "[exact question]",
+       "platform": "[polymarket/drift_bet]",
+       "position": "[yes/no]",
+       "my_probability": [X.X],
+       "market_probability": [X.X],
+       "edge": [X.X],
+       "suggested_amount": [2% of portfolio_value, min 10],
+       "reasoning": "[2 sentences]",
+       "mcb_timestamp": "[timestamp]"
+     }
+     ```
 
   10. Log: benki_db_log_sentiment with tokens_analyzed=[full watchlist], dispatched_to=["trader","predictor"]
   11. Log: benki_db_log_cron(agent="main", cron_name="market-research", status="success")
