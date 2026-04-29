@@ -39,12 +39,20 @@ def _fetch_text(url: str, timeout: int = 10) -> str:
         return r.read().decode("utf-8", errors="replace")
 
 def handle_get_funding_rates(params, **kwargs):
+    """Fetch funding rates from Binance (may be blocked in some regions)."""
     url = "https://fapi.binance.com/fapi/v1/premiumIndex"
-    data = _fetch(url)
-    return json.dumps([
-        {"symbol": d["symbol"], "lastFundingRate": float(d["lastFundingRate"]) * 100}
-        for d in data if d["symbol"] in ["BTCUSDT","ETHUSDT","SOLUSDT"]
-    ])
+    try:
+        data = _fetch(url)
+        return json.dumps([
+            {"symbol": d["symbol"], "lastFundingRate": float(d["lastFundingRate"]) * 100}
+            for d in data if d["symbol"] in ["BTCUSDT","ETHUSDT","SOLUSDT"]
+        ])
+    except Exception as e:
+        # Graceful fallback if Binance blocks the IP (e.g., US region)
+        return json.dumps({
+            "error": "Funding rate service unavailable in your region",
+            "details": str(e)
+        })
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Tool Handlers
