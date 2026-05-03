@@ -131,6 +131,71 @@ body::before {
   color: var(--text-2);
 }
 
+/* ── Feature Toggles ────────────────────────────────────────────────────── */
+.feature-toggles {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: var(--transition);
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--text-3);
+  border-radius: 50%;
+  transition: var(--transition);
+}
+
+.toggle input:checked + .toggle-track {
+  background: var(--green-dim);
+  border-color: var(--green);
+}
+
+.toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(16px);
+  background: var(--green);
+}
+
+.toggle input:disabled + .toggle-track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+}
+
 /* ── Pulse Dots ─────────────────────────────────────────────────────────── */
 .pulse-dot, .status-dot {
   width: 8px;
@@ -242,6 +307,22 @@ body::before {
 .agent-card.online  { border-top: 2px solid var(--green); }
 .agent-card.offline { border-top: 2px solid var(--red); }
 .agent-card.degraded{ border-top: 2px solid var(--amber); }
+
+/* Disabled agent card (feature toggle off) */
+.agent-card.disabled {
+  border-top: 2px solid var(--text-3);
+  filter: grayscale(0.6);
+  transition: opacity var(--transition), filter var(--transition);
+}
+
+.agent-card.disabled .agent-name,
+.agent-card.disabled .agent-host {
+  color: var(--text-3);
+}
+
+.agent-card.disabled .agent-icon {
+  opacity: 0.5;
+}
 
 .agent-card-header {
   display: flex;

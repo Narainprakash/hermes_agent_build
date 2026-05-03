@@ -143,8 +143,56 @@ async function refreshStatus() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// P&L Chart
+// Feature Toggles
 // ══════════════════════════════════════════════════════════════════════════
+let FEATURES = { trading: true, predictions: false };
+
+async function loadFeatures() {
+  const data = await fetchJSON('/api/features');
+  if (data) {
+    FEATURES = data;
+    applyFeatureToggles();
+  }
+}
+
+function applyFeatureToggles() {
+  const tradingToggle = el('toggleTrading');
+  const predictionsToggle = el('togglePredictions');
+
+  if (tradingToggle) tradingToggle.checked = FEATURES.trading;
+  if (predictionsToggle) predictionsToggle.checked = FEATURES.predictions;
+
+  // Predictor card visual state
+  const predictorCard = el('card-predictor');
+  if (predictorCard) {
+    if (FEATURES.predictions) {
+      predictorCard.classList.remove('disabled');
+      predictorCard.style.opacity = '1';
+    } else {
+      predictorCard.classList.add('disabled');
+      predictorCard.style.opacity = '0.45';
+    }
+  }
+
+  // Adjust grid layout based on active cards
+  const grid = document.querySelector('.agents-grid');
+  if (grid) {
+    const activeCards = Array.from(grid.querySelectorAll('.agent-card')).filter(
+      card => !card.classList.contains('disabled')
+    );
+    const count = activeCards.length;
+    if (count === 2) {
+      grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    } else {
+      grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    }
+  }
+
+  // Dim prediction-related directive badges in commands table
+  document.querySelectorAll('.badge-bet_yes, .badge-bet_no').forEach(badge => {
+    badge.style.opacity = FEATURES.predictions ? '1' : '0.3';
+  });
+}
 let pnlChart = null;
 
 function buildPnlChart(labels, realized, ending) {
@@ -539,6 +587,9 @@ async function refreshMinimax() {
 // ══════════════════════════════════════════════════════════════════════════
 function start() {
   startClock();
+
+  // Load feature toggles first
+  loadFeatures();
 
   // Initial fetches
   refreshStatus();

@@ -10,6 +10,12 @@ const GATEWAY_PORT = process.env.GATEWAY_PORT || '8642';
 const HEALTH_PATH = process.env.HEALTH_PATH || '/health';
 const API_KEY = process.env.API_SERVER_KEY || '';
 
+// Feature toggles — control which markets are active
+const FEATURES = {
+  trading: process.env.FEATURE_TRADING !== 'false',      // default ON
+  predictions: process.env.FEATURE_PREDICTIONS === 'true', // default OFF
+};
+
 const AGENTS = [
   { id: 'main', name: 'Orchestrator', host: process.env.MAIN_HOST || 'benki-main' },
   { id: 'trader', name: 'Trader', host: process.env.TRADER_HOST || 'benki-trader' },
@@ -75,6 +81,15 @@ const app = express();
 
 // Ping / liveness probe (used by Docker HEALTHCHECK)
 app.get('/api/ping', (_req, res) => res.json({ ok: true }));
+
+// Feature toggles — tells the UI which modules are active
+app.get('/api/features', (_req, res) => {
+  res.json({
+    trading: FEATURES.trading,
+    predictions: FEATURES.predictions,
+    updatedAt: new Date().toISOString(),
+  });
+});
 
 // Aggregate health of all 3 agent gateways
 app.get('/api/status', async (_req, res) => {

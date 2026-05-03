@@ -1,27 +1,94 @@
-# Secrets — NEVER commit
+# ═══════════════════════════════════════════════════════════════
+# Secrets — NEVER commit under any circumstances
+# ═══════════════════════════════════════════════════════════════
 .env
+.env.*
 configs/*/.env
+*.key
+*.pem
+*.p12
+*.pkcs12
+*.keystore
 
+# Wallet / key files (any format)
+wallets/
+wallet/
+*.wallet
+*.seed
+*.mnemonic
+
+# ═══════════════════════════════════════════════════════════════
 # Python
+# ═══════════════════════════════════════════════════════════════
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+env/
 
-# Docker volumes (local dev)
+# ═══════════════════════════════════════════════════════════════
+# Node.js / UI
+# ═══════════════════════════════════════════════════════════════
+node_modules/
+ui/node_modules/
+ui/dist/
+ui/build/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ═══════════════════════════════════════════════════════════════
+# Docker volumes (local dev) — contain runtime data & secrets
+# ═══════════════════════════════════════════════════════════════
 pgdata/
+main-data/
+trader-data/
+predictor-data/
 
+# ═══════════════════════════════════════════════════════════════
 # OS
+# ═══════════════════════════════════════════════════════════════
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
 
+# ═══════════════════════════════════════════════════════════════
 # IDE
+# ═══════════════════════════════════════════════════════════════
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 
-# Cron output logs (contain operational data)
+# ═══════════════════════════════════════════════════════════════
+# Runtime / operational data
+# ═══════════════════════════════════════════════════════════════
 cron/*/output/
 cron/*/.tick.lock
+*.pid
+*.sock
 
+# Agent memory & sessions (may contain sensitive trade data)
+sessions/
+logs/
+*.session
+*.memory
+
+# ═══════════════════════════════════════════════════════════════
 # Implementation docs with embedded secrets
+# ═══════════════════════════════════════════════════════════════
 IMPLEMENTATION_PLAN.md
 implementation_plan_original.md

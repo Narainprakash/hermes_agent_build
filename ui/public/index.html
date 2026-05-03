@@ -33,6 +33,24 @@
       <span class="logo-sub">Multi-Agent Control Center</span>
     </div>
     <div class="header-right">
+      <!-- Feature Toggles -->
+      <div class="feature-toggles" aria-label="Feature toggles">
+        <label class="toggle" title="Crypto spot trading (Jupiter, 1inch)">
+          <input type="checkbox" id="toggleTrading" checked disabled />
+          <span class="toggle-track">
+            <span class="toggle-thumb"></span>
+          </span>
+          <span class="toggle-label">Trading</span>
+        </label>
+        <label class="toggle" title="Prediction markets (Polymarket, Drift)">
+          <input type="checkbox" id="togglePredictions" />
+          <span class="toggle-track">
+            <span class="toggle-thumb"></span>
+          </span>
+          <span class="toggle-label">Predictions</span>
+        </label>
+      </div>
+
       <div class="system-badge" id="systemBadge" aria-live="polite">
         <span class="pulse-dot" id="systemDot"></span>
         <span id="systemStatus">Initializing…</span>

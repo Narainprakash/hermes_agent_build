@@ -232,6 +232,9 @@ services:
       PREDICTOR_HOST: benki-predictor
       TRADING_CHANNEL_ID: "1494494694057709789"
       PREDICTIONS_CHANNEL_ID: "1494494936182165705"
+      # Feature toggles — control which markets are active
+      FEATURE_TRADING: "true"
+      FEATURE_PREDICTIONS: "false"
     networks:
       - benki-net
     depends_on:
