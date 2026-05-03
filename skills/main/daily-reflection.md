@@ -30,14 +30,57 @@ Analyze each winning trade:
 - Was the position size optimal (Kelly sizing)?
 - Can this pattern be repeated?
 
-## Step 4: Update Memory
+## Step 4: Write Structured Lesson (Anti-Bloat System)
+
+### 4a. Deduplication Check
+Before writing a new lesson, scan the last 10 entries in `workspace/lessons.md`.
+If a lesson with the same **root cause** already exists within the last 7 days, do NOT create a duplicate. Instead, append today's date to the existing entry and increment its `frequency` counter.
+
+### 4b. Lesson Format (compact, structured)
+Append to `workspace/lessons.md` using this exact format:
+```markdown
+### [YYYY-MM-DD] Lesson #[auto-increment]
+**Type:** [dispatch_error | signal_quality | coordination_issue | market_regime | risk_event]
+**Trigger:** [What happened today]
+**Root Cause:** [Why it happened — be specific]
+**Action:** [What to do differently]
+**Frequency:** [1] (increment if duplicate within 7 days)
+**Confidence:** [high | medium | low]
+**First Seen:** [YYYY-MM-DD]
+**Last Seen:** [YYYY-MM-DD]
+```
+
+### 4c. Capping Rule (CRITICAL — prevents bloat)
+`workspace/lessons.md` must NEVER exceed **30 entries**. If it does:
+1. Remove the oldest entries (by `First Seen` date) until only 25 remain
+2. Before deleting, compress removed entries into a single **rollup entry**:
+```markdown
+### [YYYY-MM-DD] Rollup — [Month] Patterns
+**Type:** compressed
+**Summary:** [3-5 bullet points of recurring themes from removed entries]
+**Patterns Retained:** [Only patterns with frequency >= 2]
+```
+
+### 4d. AGENTS.md Update Rule (only when pattern is proven)
+DO NOT update `AGENTS.md` or `SOUL.md` every day. Only update when:
+- A pattern has `frequency >= 3` (observed 3+ times), OR
+- A pattern caused a circuit breaker hit, OR
+- A dispatch error cost > 5% of portfolio
+
+When updating `AGENTS.md`, append a concise rule:
+```markdown
+## RULE [auto-increment] — [Pattern Name] (freq: [N], since [date])
+[One-line rule]. Triggered by: [conditions]. Action: [response].
+```
+
+## Step 5: Update Memory
 Update MEMORY.md with:
 - Today's P&L summary
-- Key lessons learned
+- Key lessons learned (reference lesson number)
 - Strategy adjustments for tomorrow
 - Tokens/patterns to watch
 
-## Step 5: Post Summary
+## Step 6: Post Summary
 Post a daily performance summary to #general:
 
 📊 **Daily Performance Report** — [date]
@@ -45,7 +88,7 @@ Post a daily performance summary to #general:
 **Growth Target Progress:** [Current balance vs target balance]
 **Trades:** [executed] / [rejected by risk_check]
 **Win Rate:** [X%]
-**Drawdown:** [X%] / 10% limit
+**Drawdown:** [X%] / 5% limit
 **Circuit Breaker:** [Not hit / Hit at HH:MM]
-**Key Lessons:** [1-2 sentences]
+**Key Lessons:** [1-2 sentences — reference lesson number]
 **Tomorrow's Focus:** [tokens/strategies to watch]

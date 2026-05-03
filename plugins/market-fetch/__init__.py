@@ -1,7 +1,7 @@
 """
 Benki Market Fetch Plugin
 ==========================
-Direct HTTP market data fetcher — NO API KEY REQUIRED.
+Async HTTP market data fetcher — NO API KEY REQUIRED.
 Uses free public endpoints: CoinGecko, Polymarket Gamma, DuckDuckGo.
 
 This plugin gives the orchestrator live internet access for:
@@ -11,38 +11,41 @@ This plugin gives the orchestrator live internet access for:
   - Generic URL fetch for any public JSON endpoint
 
 All endpoints confirmed reachable from the Docker container.
+Uses aiohttp for non-blocking async I/O.
 """
 
 import json
-import urllib.request
-import urllib.parse
+import aiohttp
 import ssl
 import os
 from datetime import datetime, timezone
 
 # Shared SSL context + UA header to avoid 403s
-_CTX = ssl.create_default_context()
+_SSL_CTX = ssl.create_default_context()
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; BenkiBot/1.0)"}
 
 
-def _fetch(url: str, timeout: int = 10) -> dict:
-    """Raw HTTP GET → parsed JSON dict. Raises on error."""
-    req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=timeout, context=_CTX) as r:
-        return json.loads(r.read().decode("utf-8"))
+async def _fetch(url: str, timeout: int = 10) -> dict:
+    """Async HTTP GET → parsed JSON dict. Raises on error."""
+    async with aiohttp.ClientSession(headers=_HEADERS) as session:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout), ssl=_SSL_CTX) as resp:
+            resp.raise_for_status()
+            text = await resp.text()
+            return json.loads(text)
 
 
-def _fetch_text(url: str, timeout: int = 10) -> str:
-    """Raw HTTP GET → text string."""
-    req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=timeout, context=_CTX) as r:
-        return r.read().decode("utf-8", errors="replace")
+async def _fetch_text(url: str, timeout: int = 10) -> str:
+    """Async HTTP GET → text string."""
+    async with aiohttp.ClientSession(headers=_HEADERS) as session:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout), ssl=_SSL_CTX) as resp:
+            resp.raise_for_status()
+            return await resp.text()
 
-def handle_get_funding_rates(params, **kwargs):
+async def handle_get_funding_rates(params, **kwargs):
     """Fetch funding rates from Binance (may be blocked in some regions)."""
     url = "https://fapi.binance.com/fapi/v1/premiumIndex"
     try:
-        data = _fetch(url)
+        data = await _fetch(url)
         return json.dumps([
             {"symbol": d["symbol"], "lastFundingRate": float(d["lastFundingRate"]) * 100}
             for d in data if d["symbol"] in ["BTCUSDT","ETHUSDT","SOLUSDT"]
@@ -58,7 +61,7 @@ def handle_get_funding_rates(params, **kwargs):
 # Tool Handlers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def handle_get_crypto_prices(params, **kwargs):
+async def handle_get_crypto_prices(params, **kwargs):
     """
     Fetch live crypto prices from CoinGecko (free, no API key).
     Returns price in USD, 24h change, market cap, volume.
@@ -85,7 +88,7 @@ def handle_get_crypto_prices(params, **kwargs):
             f"?ids={ids}&vs_currencies=usd"
             f"&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true"
         )
-        data = _fetch(url)
+        data = await _fetch(url)
         results = {}
         for cid, info in data.items():
             results[cid] = {
@@ -103,7 +106,7 @@ def handle_get_crypto_prices(params, **kwargs):
         return json.dumps({"error": str(e), "url": url})
 
 
-def handle_get_polymarket_markets(params, **kwargs):
+async def handle_get_polymarket_markets(params, **kwargs):
     """
     Fetch active Polymarket prediction markets from the free Gamma API.
     Returns top markets by volume with current odds.
@@ -126,49 +129,48 @@ def handle_get_polymarket_markets(params, **kwargs):
         if category:
             api_params["tag"] = category
 
+        import urllib.parse
         qs = urllib.parse.urlencode(api_params)
         url = f"https://gamma-api.polymarket.com/markets?{qs}"
-        markets_raw = _fetch(url)
+        markets_raw = await _fetch(url)
 
         filtered = []
         for m in markets_raw:
             vol = float(m.get("volume24hr") or m.get("volume") or 0)
             question = m.get("question", "")
-            if vol < min_volume:
-                continue
-            if query and query.lower() not in question.lower():
-                continue
+            if vol >= min_volume:  # FIXED: was > (excluded valid markets)
+                if query and query.lower() not in question.lower():
+                    continue
 
-            # Parse outcome prices (JSON string in the API)
-            try:
-                prices = json.loads(m.get("outcomePrices", "[]"))
-                outcomes = json.loads(m.get("outcomes", "[]"))
-            except Exception:
-                prices = []
-                outcomes = []
-
-            odds = {}
-            for i, outcome in enumerate(outcomes):
                 try:
-                    p = float(prices[i])
-                    odds[outcome] = {"probability": round(p, 4), "implied_pct": round(p * 100, 1)}
+                    prices = json.loads(m.get("outcomePrices", "[]"))
+                    outcomes = json.loads(m.get("outcomes", "[]"))
                 except Exception:
-                    pass
+                    prices = []
+                    outcomes = []
 
-            filtered.append({
-                "id": m.get("id"),
-                "question": question,
-                "volume_24h": round(vol, 0),
-                "total_volume": float(m.get("volume") or 0),
-                "liquidity": float(m.get("liquidity") or 0),
-                "end_date": m.get("endDate", ""),
-                "odds": odds,
-                "slug": m.get("slug", ""),
-                "url": f"https://polymarket.com/event/{m.get('slug', m.get('id', ''))}",
-            })
+                odds = {}
+                for i, outcome in enumerate(outcomes):
+                    try:
+                        p = float(prices[i])
+                        odds[outcome] = {"probability": round(p, 4), "implied_pct": round(p * 100, 1)}
+                    except Exception:
+                        pass
 
-            if len(filtered) >= limit:
-                break
+                filtered.append({
+                    "id": m.get("id"),
+                    "question": question,
+                    "volume_24h": round(vol, 0),
+                    "total_volume": float(m.get("volume") or 0),
+                    "liquidity": float(m.get("liquidity") or 0),
+                    "end_date": m.get("endDate", ""),
+                    "odds": odds,
+                    "slug": m.get("slug", ""),
+                    "url": f"https://polymarket.com/event/{m.get('slug', m.get('id', ''))}",
+                })
+
+                if len(filtered) >= limit:
+                    break
 
         return json.dumps({
             "markets": filtered,
@@ -180,17 +182,18 @@ def handle_get_polymarket_markets(params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-def handle_search_news(params, **kwargs):
+async def handle_search_news(params, **kwargs):
     """
     Search crypto news headlines using DuckDuckGo Instant Answer API.
-    Free, no API key required. Returns topic summaries and related topics.
+    Free, no API key required.
     """
     query = params.get("query", "crypto market today")
 
     try:
+        import urllib.parse
         qs = urllib.parse.urlencode({"q": query, "format": "json", "no_redirect": "1"})
         url = f"https://api.duckduckgo.com/?{qs}"
-        data = _fetch(url)
+        data = await _fetch(url)
 
         abstract = data.get("AbstractText", "")
         related = [
@@ -213,10 +216,9 @@ def handle_search_news(params, **kwargs):
         return json.dumps({"error": str(e)})
 
 
-def handle_fetch_url(params, **kwargs):
+async def handle_fetch_url(params, **kwargs):
     """
     Fetch any public URL and return its content as text.
-    Useful for reading JSON APIs, market data feeds, etc.
     Max 50KB returned to keep context window manageable.
     """
     url = params.get("url", "")
@@ -226,7 +228,7 @@ def handle_fetch_url(params, **kwargs):
     max_bytes = int(params.get("max_bytes", 50000))
 
     try:
-        text = _fetch_text(url)
+        text = await _fetch_text(url)
         truncated = len(text) > max_bytes
         return json.dumps({
             "url": url,
@@ -239,15 +241,14 @@ def handle_fetch_url(params, **kwargs):
         return json.dumps({"error": str(e), "url": url})
 
 
-def handle_get_fear_greed(params, **kwargs):
+async def handle_get_fear_greed(params, **kwargs):
     """
     Fetch the Crypto Fear & Greed Index from alternative.me (free, no key).
-    Returns current value, classification, and recent history.
     """
     limit = int(params.get("days", 7))
     try:
         url = f"https://api.alternative.me/fng/?limit={limit}&format=json"
-        data = _fetch(url)
+        data = await _fetch(url)
         entries = data.get("data", [])
         return json.dumps({
             "fear_greed": [

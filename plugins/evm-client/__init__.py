@@ -9,6 +9,27 @@ Supports DRY_RUN mode — simulates transactions without broadcasting.
 import os
 import json
 
+# Polygon token address map
+POLYGON_TOKENS = {
+    "MATIC": "0x0000000000000000000000000000000000001010",
+    "WMATIC": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    "USDC": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "USDT": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+    "WETH": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    "WBTC": "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6",
+    "LINK": "0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39",
+    "AAVE": "0xD6DF932A45C0f255f85145f286eA0b292B21C90B",
+    "UNI": "0xb33EaAd8d922B1084f63203d4933b1E0d8d4A4e2",
+    "CRV": "0x172370d5Cd63279eFa6d502DAB29171933a610AF",
+}
+
+
+def _resolve_address(token: str) -> str:
+    """Resolve a token symbol to its Polygon contract address."""
+    if token.startswith("0x") and len(token) == 42:
+        return token  # Already an address
+    return POLYGON_TOKENS.get(token.upper(), token)
+
 
 def _get_config():
     """Get EVM configuration from environment."""
@@ -82,8 +103,8 @@ async def handle_evm_swap(params, **kwargs):
     if not config["rpc_url"] or not config["private_key"]:
         return json.dumps({"error": "POLYGON_RPC_URL or EVM_PRIVATE_KEY not configured"})
 
-    token_in = params.get("token_in", "")
-    token_out = params.get("token_out", "")
+    token_in = _resolve_address(params.get("token_in", ""))
+    token_out = _resolve_address(params.get("token_out", ""))
     amount = float(params.get("amount", 0))
     slippage = float(params.get("slippage", 0.5))  # 0.5% default
 

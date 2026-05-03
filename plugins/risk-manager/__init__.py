@@ -1,9 +1,10 @@
 """
 Benki Risk Manager Plugin — Hardcoded Circuit Breaker
 =====================================================
-The 10% daily drawdown limit is HARDCODED at module level.
+The 5% daily drawdown limit is HARDCODED at module level.
 The LLM cannot override, modify, or bypass this value.
 Every trade request is logged to the risk_audit_log table regardless of outcome.
+Uses connection pooling for efficiency under cron load.
 """
 
 import os
@@ -12,17 +13,22 @@ import math
 from datetime import date, datetime, timezone
 
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  HARDCODED CONSTANTS — DO NOT MAKE THESE CONFIGURABLE VIA ENV/LLM  ║
+# ║  USER CONFIGURED LIMITS — Updated for Benki production             ║
 # ╚══════════════════════════════════════════════════════════════════════╝
-MAX_DAILY_DRAWDOWN_PCT = 10.0   # Circuit breaker: 10% max daily loss
+MAX_DAILY_DRAWDOWN_PCT = 5.0    # Circuit breaker: 5% max daily loss (user spec)
 KELLY_FRACTION = 0.5            # Half-Kelly for conservative sizing
 MIN_TRADE_AMOUNT = 0.01         # Minimum trade size in USD
-MAX_SINGLE_TRADE_PCT = 5.0      # Max 5% of portfolio on a single trade
+MAX_SINGLE_TRADE_PCT = 2.0      # Max 2% of portfolio on a single trade (user spec)
 MAX_CHAIN_EXPOSURE_PCT = 30.0   # Max 30% of portfolio on any single chain
 MAX_OPEN_POSITIONS = 6          # Max 6 concurrent open positions
+MAX_LOSS_PER_TRADE_PCT = 2.0    # Hard stop: max 2% loss per trade (user spec)
+LEVERAGE_MAX_WITHOUT_APPROVAL = 1.0  # No leverage without human approval
 
 # Session-level tracking for pre-trade enforcement
 _risk_check_approved_tokens = set()  # tracks which markets got approval this session
+
+# Connection pool — created lazily on first use
+_db_pool = None
 
 
 def _get_db_url():
@@ -38,44 +44,54 @@ def _parse_numeric(val, default=0.0):
         return default
 
 
-async def _query_db(query, params=None):
-    """Execute a read query against PostgreSQL."""
-    db_url = _get_db_url()
-    if not db_url:
-        return None
-
-    try:
-        import asyncpg
-        conn = await asyncpg.connect(db_url)
+async def _get_pool():
+    """Get or create the asyncpg connection pool."""
+    global _db_pool
+    if _db_pool is None:
+        db_url = _get_db_url()
+        if not db_url:
+            return None
         try:
+            import asyncpg
+            _db_pool = await asyncpg.create_pool(
+                db_url,
+                min_size=2,
+                max_size=10,
+                command_timeout=30,
+                server_settings={'application_name': 'benki_risk_manager'}
+            )
+        except Exception:
+            return None
+    return _db_pool
+
+
+async def _query_db(query, params=None):
+    """Execute a read query against PostgreSQL using the connection pool."""
+    pool = await _get_pool()
+    if not pool:
+        return None
+    try:
+        async with pool.acquire() as conn:
             if params:
-                result = await conn.fetch(query, *params)
+                return await conn.fetch(query, *params)
             else:
-                result = await conn.fetch(query)
-            return result
-        finally:
-            await conn.close()
+                return await conn.fetch(query)
     except Exception as e:
         return f"DB_ERROR: {str(e)}"
 
 
 async def _execute_db(query, params=None):
-    """Execute a write query against PostgreSQL."""
-    db_url = _get_db_url()
-    if not db_url:
-        return "DB_ERROR: BENKI_DB_URL not set"
-
+    """Execute a write query against PostgreSQL using the connection pool."""
+    pool = await _get_pool()
+    if not pool:
+        return "DB_ERROR: BENKI_DB_URL not set or pool creation failed"
     try:
-        import asyncpg
-        conn = await asyncpg.connect(db_url)
-        try:
+        async with pool.acquire() as conn:
             if params:
                 await conn.execute(query, *params)
             else:
                 await conn.execute(query)
             return "OK"
-        finally:
-            await conn.close()
     except Exception as e:
         return f"DB_ERROR: {str(e)}"
 
@@ -226,6 +242,21 @@ async def handle_risk_check(params, **kwargs):
     # ── Check 2: Minimum trade size ──────────────────────────────────
     if amount < MIN_TRADE_AMOUNT:
         reason = f"Trade amount ${amount} below minimum ${MIN_TRADE_AMOUNT}"
+        await _log_risk_decision(agent, action, chain, market, amount,
+                                  False, reason, current_drawdown, 0.0, 0.0)
+        return json.dumps({
+            "approved": False,
+            "reason": reason,
+            "position_size": 0.0,
+            "current_drawdown_pct": current_drawdown,
+            "circuit_breaker_hit": False
+        })
+    # ── Check 2b: Leverage check (no leverage without human approval) ─
+    leverage = _parse_numeric(params.get("leverage", 1.0))
+    if leverage > LEVERAGE_MAX_WITHOUT_APPROVAL:
+        reason = (f"LEVERAGE REJECTED — Requested {leverage}x leverage exceeds "
+                  f"the maximum {LEVERAGE_MAX_WITHOUT_APPROVAL}x without explicit human approval. "
+                  f"Tag @vernon_bella or @bud916 for leverage approval.")
         await _log_risk_decision(agent, action, chain, market, amount,
                                   False, reason, current_drawdown, 0.0, 0.0)
         return json.dumps({

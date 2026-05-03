@@ -8,6 +8,25 @@ Supports DRY_RUN mode — simulates transactions without broadcasting.
 import os
 import json
 
+# Token mint address map for Jupiter swaps
+SOLANA_TOKENS = {
+    "SOL": "So11111111111111111111111111111111111111112",
+    "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    "WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    "JTO": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2Hs2dhT9",
+    "RNDR": "rndrizKT3MK1iimdmRd7VWZUVvXjMNZct8e34EZPge5",
+    "INJ": "inj1q2f3...",  # Placeholder — update with real mint
+}
+
+
+def _resolve_mint(token: str) -> str:
+    """Resolve a token symbol to its mint address."""
+    if token.startswith("A") and len(token) >= 32:
+        return token  # Already a mint address
+    return SOLANA_TOKENS.get(token.upper(), token)
+
 
 def _get_config():
     return {

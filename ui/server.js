@@ -180,6 +180,20 @@ app.get('/api/growth', async (_req, res) => {
   res.json(rows[0] || null);
 });
 
+// Predictions (open prediction market bets)
+app.get('/api/predictions', async (_req, res) => {
+  const rows = await safeQuery(
+    `SELECT id, timestamp, platform, market_question, position,
+            my_probability, market_probability, edge, amount,
+            entry_price, resolution_date, status, brier_score, notes
+     FROM   predictions
+     WHERE  status = 'open'
+     ORDER  BY timestamp DESC
+     LIMIT  50`
+  );
+  res.json(rows);
+});
+
 // LLM Token Usage (OpenRouter API)
 app.get('/api/llm-usage', async (_req, res) => {
   const openRouterKey = process.env.OPENROUTER_API_KEY;

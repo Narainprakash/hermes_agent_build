@@ -39,7 +39,7 @@ token_momentum = token_24h_change - btc_24h_change
 - If token_momentum > 0: confirms the signal, proceed with full confidence
 
 ## Step 4: Risk Check (MANDATORY — no exceptions)
-Call risk_check with:
+Call risk_check with ALL of these fields:
 ```
 agent: "trader"
 chain: [solana or polygon]
@@ -48,7 +48,17 @@ amount: [suggested_amount from directive]
 market: "[TOKEN]/USDC"
 win_probability: [from directive]
 portfolio_value: [from Step 2 — REQUIRED]
+trade_type: "spot"
+tp_pct: [from directive or default 0.15]
+sl_pct: [from directive or default 0.07]
+leverage: 1.0  # MUST be 1.0 — no leverage without human approval
 ```
+
+**Updated Risk Limits (as of May 2026):**
+- Max single trade: 2% of portfolio
+- Max daily drawdown: 5% (circuit breaker)
+- Max loss per trade: 2% of portfolio (hard stop-loss)
+- No leverage > 1x without explicit human approval
 
 **If REJECTED:** Post rejection reason. Do NOT retry same trade in this session.
 **If APPROVED:** Use position_size from the risk_check response — NOT your original amount.

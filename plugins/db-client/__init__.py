@@ -3,27 +3,52 @@ Benki DB Client Plugin
 ======================
 PostgreSQL read/write interface for the Benki trading system.
 Provides tools for logging trades, querying P&L, and storing sentiment briefs.
+Uses connection pooling for efficiency under cron load.
 """
 
 import os
 import json
 from datetime import date
 
+# Connection pool — created lazily on first use
+_db_pool = None
+
 
 def _get_db_url():
     return os.environ.get("BENKI_DB_URL", "")
 
 
+async def _get_pool():
+    """Get or create the asyncpg connection pool."""
+    global _db_pool
+    if _db_pool is None:
+        db_url = _get_db_url()
+        if not db_url:
+            return None
+        try:
+            import asyncpg
+            _db_pool = await asyncpg.create_pool(
+                db_url,
+                min_size=2,
+                max_size=10,
+                command_timeout=30,
+                server_settings={
+                    'application_name': 'benki_db_client'
+                }
+            )
+        except Exception:
+            return None
+    return _db_pool
+
+
 async def handle_log_trade(params, **kwargs):
     """Log a trade execution to the database."""
-    db_url = _get_db_url()
-    if not db_url:
-        return json.dumps({"error": "BENKI_DB_URL not configured"})
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
     try:
-        import asyncpg
-        conn = await asyncpg.connect(db_url)
-        try:
+        async with pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO trades (agent, chain, platform, action, market, 
                    amount, price, tx_hash, status, risk_check_passed, notes)
@@ -41,22 +66,18 @@ async def handle_log_trade(params, **kwargs):
                 params.get("notes", "")
             )
             return json.dumps({"success": True, "message": "Trade logged successfully"})
-        finally:
-            await conn.close()
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 
 async def handle_query_trades(params, **kwargs):
     """Query recent trades from the database."""
-    db_url = _get_db_url()
-    if not db_url:
-        return json.dumps({"error": "BENKI_DB_URL not configured"})
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
     try:
-        import asyncpg
-        conn = await asyncpg.connect(db_url)
-        try:
+        async with pool.acquire() as conn:
             limit = int(params.get("limit", 10))
             agent_filter = params.get("agent", None)
 
@@ -93,24 +114,19 @@ async def handle_query_trades(params, **kwargs):
                     "notes": row["notes"]
                 })
             return json.dumps({"trades": trades, "count": len(trades)})
-        finally:
-            await conn.close()
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 
 async def handle_query_daily_pnl(params, **kwargs):
     """Query daily P&L for a given date (defaults to today)."""
-    db_url = _get_db_url()
-    if not db_url:
-        return json.dumps({"error": "BENKI_DB_URL not configured"})
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
     try:
-        import asyncpg
-        conn = await asyncpg.connect(db_url)
-        try:
+        async with pool.acquire() as conn:
             target_date_str = params.get("date", date.today().isoformat())
-            # Convert string to date object for asyncpg
             from datetime import datetime
             try:
                 target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
@@ -133,22 +149,18 @@ async def handle_query_daily_pnl(params, **kwargs):
                     "trades_rejected": row["trades_rejected"]
                 })
             return json.dumps({"message": f"No P&L data for {target_date}"})
-        finally:
-            await conn.close()
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 
 async def handle_log_sentiment(params, **kwargs):
     """Log a sentiment brief to the database."""
-    db_url = _get_db_url()
-    if not db_url:
-        return json.dumps({"error": "BENKI_DB_URL not configured"})
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
     try:
-        import asyncpg
-        conn = await asyncpg.connect(db_url)
-        try:
+        async with pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO sentiment_briefs 
                    (brief_text, tokens_analyzed, overall_sentiment, confidence, dispatched_to)
@@ -160,22 +172,18 @@ async def handle_log_sentiment(params, **kwargs):
                 params.get("dispatched_to", [])
             )
             return json.dumps({"success": True, "message": "Sentiment brief logged"})
-        finally:
-            await conn.close()
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 
 async def handle_reset_daily_pnl(params, **kwargs):
     """Reset daily P&L starting balance from previous day."""
-    db_url = _get_db_url()
-    if not db_url:
-        return json.dumps({"error": "BENKI_DB_URL not configured"})
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
     try:
-        import asyncpg
-        conn = await asyncpg.connect(db_url)
-        try:
+        async with pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO daily_pnl (date, starting_balance_usd)
                    VALUES (CURRENT_DATE, (
@@ -185,22 +193,18 @@ async def handle_reset_daily_pnl(params, **kwargs):
                    ON CONFLICT (date) DO NOTHING;"""
             )
             return json.dumps({"success": True, "message": "Daily P&L starting balance reset applied"})
-        finally:
-            await conn.close()
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 
 async def handle_log_cron(params, **kwargs):
     """Log a cron execution to the database."""
-    db_url = _get_db_url()
-    if not db_url:
-        return json.dumps({"error": "BENKI_DB_URL not configured"})
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
     try:
-        import asyncpg
-        conn = await asyncpg.connect(db_url)
-        try:
+        async with pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO cron_logs (agent, cron_name, status, details)
                    VALUES ($1, $2, $3, $4)""",
@@ -210,8 +214,6 @@ async def handle_log_cron(params, **kwargs):
                 params.get("details", "")
             )
             return json.dumps({"success": True, "message": "Cron log recorded"})
-        finally:
-            await conn.close()
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -220,16 +222,17 @@ async def handle_update_daily_pnl(params, **kwargs):
     """
     Update daily P&L with current portfolio value, realized/unrealized PnL,
     and compute drawdown percentage. CRITICAL for circuit breaker to function.
+    Uses the user-specified 5% daily drawdown limit.
     """
-    db_url = _get_db_url()
-    if not db_url:
-        return json.dumps({"error": "BENKI_DB_URL not configured"})
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
+
+    # User-specified circuit breaker threshold (must match risk-manager)
+    CIRCUIT_BREAKER_THRESHOLD = 5.0
 
     try:
-        import asyncpg
-        from datetime import datetime
-        conn = await asyncpg.connect(db_url)
-        try:
+        async with pool.acquire() as conn:
             today = date.today()
             ending_balance = float(params.get("ending_balance_usd", 0))
             realized_pnl = float(params.get("realized_pnl", 0))
@@ -237,7 +240,6 @@ async def handle_update_daily_pnl(params, **kwargs):
             trades_executed = int(params.get("trades_executed", 0))
             trades_rejected = int(params.get("trades_rejected", 0))
 
-            # Get starting balance for drawdown calculation
             rows = await conn.fetch(
                 "SELECT starting_balance_usd, max_drawdown_pct FROM daily_pnl WHERE date = $1", today
             )
@@ -247,11 +249,12 @@ async def handle_update_daily_pnl(params, **kwargs):
                 prev_max_dd = float(rows[0]["max_drawdown_pct"] or 0)
                 max_dd = max(drawdown_pct, prev_max_dd)
             else:
-                starting = ending_balance  # First update of the day
+                starting = ending_balance
                 drawdown_pct = 0.0
                 max_dd = 0.0
 
-            # Upsert — preserve max_drawdown across updates
+            cb_triggered = drawdown_pct >= CIRCUIT_BREAKER_THRESHOLD
+
             await conn.execute(
                 """INSERT INTO daily_pnl
                    (date, starting_balance_usd, ending_balance_usd, realized_pnl,
@@ -266,15 +269,16 @@ async def handle_update_daily_pnl(params, **kwargs):
                      max_drawdown_pct = GREATEST(COALESCE(daily_pnl.max_drawdown_pct, 0), $7),
                      trades_executed = COALESCE(daily_pnl.trades_executed, 0) + $8,
                      trades_rejected = COALESCE(daily_pnl.trades_rejected, 0) + $9,
-                     circuit_breaker_hit = CASE WHEN $6 >= 10.0 THEN TRUE
+                     circuit_breaker_hit = CASE WHEN $6 >= $10 THEN TRUE
                                                ELSE daily_pnl.circuit_breaker_hit END""",
                 today, starting, ending_balance, realized_pnl, unrealized_pnl,
-                drawdown_pct, max_dd, trades_executed, trades_rejected
+                drawdown_pct, max_dd, trades_executed, trades_rejected,
+                CIRCUIT_BREAKER_THRESHOLD
             )
 
             cb_msg = ""
-            if drawdown_pct >= 10.0:
-                cb_msg = " ⚠️ CIRCUIT BREAKER TRIGGERED — 10% drawdown reached!"
+            if cb_triggered:
+                cb_msg = f" ⚠️ CIRCUIT BREAKER TRIGGERED — {CIRCUIT_BREAKER_THRESHOLD}% drawdown reached!"
 
             return json.dumps({
                 "success": True,
@@ -283,10 +287,75 @@ async def handle_update_daily_pnl(params, **kwargs):
                 "starting_balance_usd": starting,
                 "ending_balance_usd": ending_balance,
                 "drawdown_pct": round(drawdown_pct, 2),
-                "circuit_breaker_hit": drawdown_pct >= 10.0
+                "circuit_breaker_hit": cb_triggered
             })
-        finally:
-            await conn.close()
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+async def handle_log_prediction(params, **kwargs):
+    """Log a prediction market bet to the database."""
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO predictions
+                   (agent, platform, market_id, market_question, position,
+                    my_probability, market_probability, edge, amount,
+                    entry_price, resolution_date, status, notes)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)""",
+                params.get("agent", "predictor"),
+                params.get("platform", "polymarket"),
+                params.get("market_id", ""),
+                params.get("market_question", ""),
+                params.get("position", "yes"),
+                float(params.get("my_probability", 0)),
+                float(params.get("market_probability", 0)),
+                float(params.get("edge", 0)),
+                float(params.get("amount", 0)),
+                float(params.get("entry_price", 0)),
+                params.get("resolution_date", None),
+                params.get("status", "open"),
+                params.get("notes", "")
+            )
+            return json.dumps({"success": True, "message": "Prediction logged successfully"})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+async def handle_log_command(params, **kwargs):
+    """Log a commander-worker directive to the agent_commands table."""
+    pool = await _get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
+
+    try:
+        import json as _json
+        async with pool.acquire() as conn:
+            directive_json = params.get("directive_json", {})
+            response_json = params.get("response_json", {})
+            if isinstance(directive_json, str):
+                directive_json = _json.loads(directive_json)
+            if isinstance(response_json, str):
+                response_json = _json.loads(response_json)
+
+            await conn.execute(
+                """INSERT INTO agent_commands
+                   (commander, worker, directive_type, directive_json,
+                    response_json, response_status, feedback_loop_closed)
+                   VALUES (, , , , , , )""",
+                params.get("commander", "main"),
+                params.get("worker", "unknown"),
+                params.get("directive_type", "TRADE_NOW"),
+                _json.dumps(directive_json),
+                _json.dumps(response_json) if response_json else None,
+                params.get("response_status", "pending"),
+                params.get("feedback_loop_closed", False)
+            )
+            return json.dumps({"success": True, "message": "Command logged successfully"})
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -294,7 +363,7 @@ async def handle_update_daily_pnl(params, **kwargs):
 def register(ctx):
     """Register database tools with Hermes."""
 
-    # ── Log Trade ──
+    # ...existing tool registrations...
     ctx.register_tool("benki_db_log_trade", "benki_db", {
         "name": "benki_db_log_trade",
         "description": "Log a trade execution to the Benki PostgreSQL database.",
@@ -317,7 +386,6 @@ def register(ctx):
         }
     }, handle_log_trade, is_async=True)
 
-    # ── Query Trades ──
     ctx.register_tool("benki_db_query_trades", "benki_db", {
         "name": "benki_db_query_trades",
         "description": "Query recent trades from the database. Optionally filter by agent.",
@@ -330,7 +398,6 @@ def register(ctx):
         }
     }, handle_query_trades, is_async=True)
 
-    # ── Query Daily P&L ──
     ctx.register_tool("benki_db_daily_pnl", "benki_db", {
         "name": "benki_db_daily_pnl",
         "description": "Query daily P&L, drawdown, and circuit breaker status. Defaults to today.",
@@ -342,7 +409,6 @@ def register(ctx):
         }
     }, handle_query_daily_pnl, is_async=True)
 
-    # ── Log Sentiment Brief ──
     ctx.register_tool("benki_db_log_sentiment", "benki_db", {
         "name": "benki_db_log_sentiment",
         "description": "Log a Market Context Brief / sentiment analysis to the database.",
@@ -365,7 +431,6 @@ def register(ctx):
         }
     }, handle_log_sentiment, is_async=True)
 
-    # ── Log Cron Execution ──
     ctx.register_tool("benki_db_log_cron", "benki_db", {
         "name": "benki_db_log_cron",
         "description": "Log a scheduled cron job execution to the database.",
@@ -381,7 +446,6 @@ def register(ctx):
         }
     }, handle_log_cron, is_async=True)
 
-    # ── Reset Daily P&L ──
     ctx.register_tool("benki_db_reset_daily_pnl", "benki_db", {
         "name": "benki_db_reset_daily_pnl",
         "description": "Roll over the previous day's ending balance to today's starting balance in the daily_pnl table.",
@@ -391,13 +455,12 @@ def register(ctx):
         }
     }, handle_reset_daily_pnl, is_async=True)
 
-    # ── Update Daily P&L (CRITICAL for circuit breaker) ──
     ctx.register_tool("benki_db_update_daily_pnl", "benki_db", {
         "name": "benki_db_update_daily_pnl",
         "description": (
             "Update today's daily P&L with current portfolio value and compute drawdown. "
             "MUST be called after every trade execution and during hourly position reviews. "
-            "This is what makes the circuit breaker work — without it, drawdown is always 0%."
+            "This is what makes the circuit breaker work � without it, drawdown is always 0%."
         ),
         "parameters": {
             "type": "object",
@@ -427,3 +490,44 @@ def register(ctx):
         }
     }, handle_update_daily_pnl, is_async=True)
 
+    ctx.register_tool("benki_db_log_prediction", "benki_db", {
+        "name": "benki_db_log_prediction",
+        "description": "Log a prediction market bet to the predictions table.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "agent": {"type": "string", "description": "Agent name (default: 'predictor')"},
+                "platform": {"type": "string", "description": "Platform: 'polymarket' or 'drift_bet'"},
+                "market_id": {"type": "string", "description": "Market/token ID"},
+                "market_question": {"type": "string", "description": "Full market question text"},
+                "position": {"type": "string", "description": "'yes' or 'no'"},
+                "my_probability": {"type": "number", "description": "Your estimated probability (0.0-1.0)"},
+                "market_probability": {"type": "number", "description": "Market implied probability (0.0-1.0)"},
+                "edge": {"type": "number", "description": "Edge = my_probability - market_probability"},
+                "amount": {"type": "number", "description": "Bet amount in USD"},
+                "entry_price": {"type": "number", "description": "Price paid per share (0.0-1.0)"},
+                "resolution_date": {"type": "string", "description": "Expected resolution date (YYYY-MM-DD)"},
+                "status": {"type": "string", "description": "'open', 'closed_early', 'resolved_win', 'resolved_loss'"},
+                "notes": {"type": "string", "description": "Additional notes"}
+            },
+            "required": ["market_question", "position", "my_probability", "market_probability", "edge"]
+        }
+    }, handle_log_prediction, is_async=True)
+
+    ctx.register_tool("benki_db_log_command", "benki_db", {
+        "name": "benki_db_log_command",
+        "description": "Log a commander-worker directive to the agent_commands table for audit tracking.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "commander": {"type": "string", "description": "Commander agent (default: 'main')"},
+                "worker": {"type": "string", "description": "Worker agent: 'trader' or 'predictor'"},
+                "directive_type": {"type": "string", "description": "'TRADE_NOW' or 'BET_NOW'"},
+                "directive_json": {"type": "object", "description": "The full directive as JSON"},
+                "response_json": {"type": "object", "description": "Worker response as JSON"},
+                "response_status": {"type": "string", "description": "'pending', 'executed', 'rejected', 'skipped'"},
+                "feedback_loop_closed": {"type": "boolean", "description": "Whether main acknowledged the response"}
+            },
+            "required": ["worker", "directive_type", "directive_json"]
+        }
+    }, handle_log_command, is_async=True)

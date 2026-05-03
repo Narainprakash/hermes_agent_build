@@ -41,9 +41,17 @@ Format using the MCB template in your system prompt:
 2. Use `send_message` to post to #trading channel @mentioning @benki_trader with a STRICT JSON `TRADE_NOW` block
 3. Use `send_message` to post to #predictor channel @mentioning @benki_predictor with a STRICT JSON `BET_NOW` block
 4. Log the brief using `benki_db_log_sentiment`
+5. Log the directive using `benki_db_log_command` for audit tracking
 
 ## Step 6: Update Memory
 After dispatching, update MEMORY.md with:
 - Brief summary of this scan's findings
 - Any notable market regime changes
 - Running tally of brief accuracy (compare past predictions to outcomes)
+
+## Step 7: Risk Advisory in Every MCB
+Every Market Context Brief MUST include:
+- Current drawdown % (from benki_db_daily_pnl)
+- Circuit breaker status (Safe / TRIPPED)
+- Remaining daily risk budget (5% - current_drawdown)
+- Reminder: max 2% per trade, no leverage without approval

@@ -68,9 +68,15 @@ edge = my_probability - market_probability
 | Edge | Action |
 |---|---|
 | < 5% | Skip — no bet |
-| 5-10% | Small bet — 1.5% of portfolio |
-| 10-20% | Standard bet — 2.5% of portfolio |
-| > 20% | Large bet candidate — tag @bud916 for approval before executing |
+| 5-10% | Small bet — 1.0% of portfolio (respects 2% max single trade) |
+| 10-20% | Standard bet — 1.5% of portfolio |
+| > 20% | Large bet candidate — 2.0% max, tag @bud916 for approval |
+
+**Updated Risk Limits (as of May 2026):**
+- Max single bet: 2% of portfolio (hard cap via risk_check)
+- Max daily drawdown: 5% (circuit breaker)
+- Max loss per bet: 2% of portfolio (hard stop-loss)
+- No leverage > 1x without explicit human approval
 
 ## Step 5: Calibration Check
 Load MEMORY.md and find your running Brier score.
