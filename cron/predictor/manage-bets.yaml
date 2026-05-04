@@ -2,6 +2,13 @@ schedule: "0 0 * * *"
 prompt: |
   CRON TRIGGER: Daily Bet Management
 
+  FEATURE GATE CHECK (MANDATORY — do this first):
+  - Check the environment variable FEATURE_PREDICTIONS (or your config)
+  - If FEATURE_PREDICTIONS is NOT "true" or is unset:
+    → Post in #predictor: "Prediction markets disabled by FEATURE_PREDICTIONS toggle. Bet management skipped."
+    → Log: benki_db_log_cron(agent="predictor", cron_name="manage-bets", status="skipped", details="FEATURE_PREDICTIONS=false")
+    → STOP. Do not proceed with any steps below.
+
   It is time to review open prediction market bets and evaluate if we should cash out early.
   Please run your `manage-bets` procedure.
   After completing the procedure, call benki_db_log_cron with agent="predictor", cron_name="manage-bets", status="success" to record that this cron cycle ran successfully.

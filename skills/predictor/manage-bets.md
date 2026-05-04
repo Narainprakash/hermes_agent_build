@@ -5,6 +5,15 @@ description: Review open Polymarket and Drift bets to determine if positions sho
 
 # Bet Management Procedure
 
+## Step 0: Feature Gate Check (MANDATORY)
+Before proceeding, check if prediction markets are enabled:
+- Read the environment variable `FEATURE_PREDICTIONS` (or check your config)
+- If `FEATURE_PREDICTIONS` is NOT "true" or is unset/empty:
+  - **STOP IMMEDIATELY.** Do not proceed with any steps below.
+  - Post in #predictor: "Prediction markets disabled by FEATURE_PREDICTIONS toggle. Bet management skipped."
+  - Log: `benki_db_log_cron(agent="predictor", cron_name="manage-bets", status="skipped", details="FEATURE_PREDICTIONS=false")`
+  - Exit this skill.
+
 ## Step 1: Discover Open Bets
 - Call `benki_db_query_trades` for agent="predictor" to find un-resolved bets.
 - Review `MEMORY.md` for the original entry rationale and probabilities.

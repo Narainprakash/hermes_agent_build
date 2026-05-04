@@ -87,6 +87,9 @@ services:
       HERMES_CRON_MAX_PARALLEL: "4"
       HERMES_AGENT_TIMEOUT: "1800"
       SESSION_IDLE_MINUTES: "1440"
+      # Feature toggles — passed to skills
+      FEATURE_TRADING: "true"
+      FEATURE_PREDICTIONS: "false"
     volumes:
       - main-data:/opt/data
       # Add new mount for cron loops
@@ -177,6 +180,9 @@ services:
       HERMES_CRON_MAX_PARALLEL: "4"
       HERMES_AGENT_TIMEOUT: "1800"
       SESSION_IDLE_MINUTES: "1440"
+      # Feature toggles — passed to skills
+      FEATURE_TRADING: "true"
+      FEATURE_PREDICTIONS: "false"
     volumes:
       - trader-data:/opt/data
       # Add new mount for cron loops
@@ -303,6 +309,9 @@ services:
       HERMES_CRON_MAX_PARALLEL: "4"
       HERMES_AGENT_TIMEOUT: "1800"
       SESSION_IDLE_MINUTES: "1440"
+      # Feature toggles — passed to skills
+      FEATURE_TRADING: "true"
+      FEATURE_PREDICTIONS: "false"
     volumes:
       - predictor-data:/opt/data
       # Add new mount for cron loops

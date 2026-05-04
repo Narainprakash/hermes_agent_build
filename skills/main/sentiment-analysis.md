@@ -5,6 +5,14 @@ description: Analyze crypto market sentiment and create a Market Context Brief f
 
 # Sentiment Analysis Procedure
 
+## Step 0: Feature Gate Check
+Before proceeding, check if prediction markets are enabled:
+- Read the environment variable `FEATURE_PREDICTIONS` (or check your config)
+- If `FEATURE_PREDICTIONS` is NOT "true" or is unset/empty:
+  - SKIP all prediction-related steps below (Steps 2 Polymarket, Step 4 BET_NOW dispatch)
+  - Continue with trading-related steps only
+  - Note in your output: "Prediction markets disabled by FEATURE_PREDICTIONS toggle"
+
 ## Step 1: Gather Market Data
 Use the `sentiment_search` tool with the following tokens:
 - BTC, ETH, SOL (always include these core assets)
@@ -20,7 +28,7 @@ Focus on:
 - Liquidation data
 - Fear & Greed Index
 - DeFi TVL changes
-- Active Polymarket prediction markets (crypto-related)
+- Active Polymarket prediction markets (crypto-related) — ONLY if FEATURE_PREDICTIONS is enabled
 
 ## Step 3: Score the Signals
 Use the `score_sentiment` tool with collected signals:
@@ -39,7 +47,7 @@ Format using the MCB template in your system prompt:
 ## Step 5: Dispatch
 1. Post the MCB in #general (your home channel)
 2. Use `send_message` to post to #trading channel @mentioning @benki_trader with a STRICT JSON `TRADE_NOW` block
-3. Use `send_message` to post to #predictor channel @mentioning @benki_predictor with a STRICT JSON `BET_NOW` block
+3. **ONLY if FEATURE_PREDICTIONS is enabled:** Use `send_message` to post to #predictor channel @mentioning @benki_predictor with a STRICT JSON `BET_NOW` block
 4. Log the brief using `benki_db_log_sentiment`
 5. Log the directive using `benki_db_log_command` for audit tracking
 

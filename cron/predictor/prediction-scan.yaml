@@ -2,6 +2,13 @@ schedule: "30 */3 * * *"
 prompt: |
   CRON TRIGGER: Independent Prediction Market Scan
 
+  FEATURE GATE CHECK (MANDATORY — do this first):
+  - Check the environment variable FEATURE_PREDICTIONS (or your config)
+  - If FEATURE_PREDICTIONS is NOT "true" or is unset:
+    → Post in #predictor: "Prediction markets disabled by FEATURE_PREDICTIONS toggle. Scan skipped."
+    → Log: benki_db_log_cron(agent="predictor", cron_name="prediction-scan", status="skipped", details="FEATURE_PREDICTIONS=false")
+    → STOP. Do not proceed with any steps below.
+
   YOUR INSTRUCTIONS:
   1. Read MEMORY.md — check CALIBRATION STATUS at the top.
      If it says "PAUSED" or active edge minimum is "ZERO": post that you are paused and STOP.

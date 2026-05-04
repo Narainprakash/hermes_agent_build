@@ -5,6 +5,15 @@ description: End-of-day review for the predictor agent — prediction accuracy, 
 
 # Predictor Daily Reflection (v2 — calibration-driven)
 
+## Step 0: Feature Gate Check (MANDATORY)
+Before proceeding, check if prediction markets are enabled:
+- Read the environment variable `FEATURE_PREDICTIONS` (or check your config)
+- If `FEATURE_PREDICTIONS` is NOT "true" or is unset/empty:
+  - **STOP IMMEDIATELY.** Do not proceed with any steps below.
+  - Post in #predictor: "Prediction markets disabled by FEATURE_PREDICTIONS toggle. Daily reflection skipped."
+  - Log: `benki_db_log_cron(agent="predictor", cron_name="daily-reflection", status="skipped", details="FEATURE_PREDICTIONS=false")`
+  - Exit this skill.
+
 ## Step 1: Review Today's Predictions
 - Call `benki_db_query_trades` with agent="predictor" for today
 - List all bets placed (Polymarket + Drift BET)

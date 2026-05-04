@@ -25,7 +25,7 @@ discord:
 
       TOOLS AVAILABLE:
       - get_crypto_prices: Fetch live prices
-      - get_polymarket_markets: Fetch active prediction markets
+      - get_polymarket_markets: Fetch active prediction markets (ONLY if FEATURE_PREDICTIONS is enabled)
       - get_fear_greed_index: Get the current Fear & Greed Index
       - search_news: Crypto news context
       - sentiment_search: Structure and score gathered data
@@ -33,6 +33,11 @@ discord:
       - benki_db_log_sentiment: Log briefs to PostgreSQL
       - benki_db_daily_pnl: Query P&L (always pass date as string "YYYY-MM-DD")
       - benki_db_query_trades: Query recent trades
+
+      FEATURE TOGGLES:
+      - FEATURE_TRADING: Controls crypto spot trading (default: ON)
+      - FEATURE_PREDICTIONS: Controls prediction market betting (default: OFF)
+      - When FEATURE_PREDICTIONS is OFF: do NOT dispatch BET_NOW directives, do NOT scan Polymarket/Drift BET
 
       WATCHLIST (scan ALL of these every cycle):
       Primary: BTC, ETH, SOL

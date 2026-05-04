@@ -4,6 +4,13 @@ schedule: "0 */2 * * *"
 prompt: |
   CRON TRIGGER: 2-Hour Market Research Cycle
 
+  FEATURE GATE CHECK (MANDATORY — do this first):
+  - Check the environment variable FEATURE_PREDICTIONS (or your config)
+  - If FEATURE_PREDICTIONS is NOT "true" or is unset:
+    → SKIP steps 5, 7, and 9 below (all prediction-related steps)
+    → Continue with crypto trading steps only (1-4, 6, 8, 10-11)
+    → Note in your MCB: "Prediction markets disabled by FEATURE_PREDICTIONS toggle"
+
   YOUR INSTRUCTIONS:
   1. Fetch prices for the FULL watchlist:
      get_crypto_prices for: ["bitcoin","ethereum","solana","arbitrum","optimism",
@@ -20,8 +27,9 @@ prompt: |
      search_news for "crypto altcoin momentum breakout today"
      search_news for "Bitcoin Ethereum market sentiment today"
 
-  5. Fetch Polymarket top markets:
+  5. Fetch Polymarket top markets (ONLY if FEATURE_PREDICTIONS is enabled):
      get_polymarket_markets with min_volume=50000, limit=20
+     If disabled, skip this step entirely.
 
   6. MOMENTUM ANALYSIS — for each token:
      - Calculate outperformance vs BTC (token_24h_change - btc_24h_change)
@@ -29,15 +37,18 @@ prompt: |
      - Tokens with outperformance < -2.0%: consider SHORT/AVOID signals
      - ALSO check funding rate signal: if funding is negative AND token is outperforming → VERY STRONG BUY
 
-  7. PREDICTION EDGE SCAN — for each Polymarket market:
+  7. PREDICTION EDGE SCAN (ONLY if FEATURE_PREDICTIONS is enabled):
+     For each Polymarket market found in step 5:
      - Estimate your probability using news + base rates
      - Calculate edge = your_probability - market_probability
      - Markets with edge > 5%: include a BET_NOW directive
+     If disabled, skip this step entirely.
 
-  7. Build the Market Context Brief (MCB) using standard format.
-     Include: overall sentiment, F&G reading, top 3 momentum signals, top 3 prediction edges.
+  8. Build the Market Context Brief (MCB) using standard format.
+     Include: overall sentiment, F&G reading, top 3 momentum signals.
+     ONLY include prediction edges if FEATURE_PREDICTIONS is enabled.
 
-  8. DISPATCH TO TRADER — post to channel 1494494694057709789 using STRICT JSON fenced in ```json:
+  9. DISPATCH TO TRADER — post to channel 1494494694057709789 using STRICT JSON fenced in ```json:
      For EACH token with momentum outperformance > 1.5% AND MCB confidence >= 0.60:
      @benki_trader
      ```json
@@ -57,26 +68,28 @@ prompt: |
      }
      ```
 
-  9. DISPATCH TO PREDICTOR — post to channel 1494494936182165705 using STRICT JSON fenced in ```json:
-     For EACH market with edge > 5%:
-     @benki_predictor
-     ```json
-     {
-       "directive": "BET_NOW",
-       "market": "[exact question]",
-       "platform": "[polymarket/drift_bet]",
-       "position": "[yes/no]",
-       "my_probability": [X.X],
-       "market_probability": [X.X],
-       "edge": [X.X],
-       "suggested_amount": [2% of portfolio_value, min 10],
-       "reasoning": "[2 sentences]",
-       "mcb_timestamp": "[timestamp]"
-     }
-     ```
+  10. DISPATCH TO PREDICTOR (ONLY if FEATURE_PREDICTIONS is enabled):
+      post to channel 1494494936182165705 using STRICT JSON fenced in ```json:
+      For EACH market with edge > 5%:
+      @benki_predictor
+      ```json
+      {
+        "directive": "BET_NOW",
+        "market": "[exact question]",
+        "platform": "[polymarket/drift_bet]",
+        "position": "[yes/no]",
+        "my_probability": [X.X],
+        "market_probability": [X.X],
+        "edge": [X.X],
+        "suggested_amount": [2% of portfolio_value, min 10],
+        "reasoning": "[2 sentences]",
+        "mcb_timestamp": "[timestamp]"
+      }
+      ```
+      If disabled, skip this dispatch entirely.
 
-  10. Log: benki_db_log_sentiment with tokens_analyzed=[full watchlist], dispatched_to=["trader","predictor"]
-  11. Log: benki_db_log_cron(agent="main", cron_name="market-research", status="success")
+  11. Log: benki_db_log_sentiment with tokens_analyzed=[full watchlist], dispatched_to=["trader" + "predictor" if enabled]
+  12. Log: benki_db_log_cron(agent="main", cron_name="market-research", status="success")
 
   CRITICAL RULES:
   - If confidence < 0.5 on any single trade signal, replace TRADE_NOW with LOW_CONFIDENCE and tag @vernon_bella

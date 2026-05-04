@@ -9,6 +9,14 @@ This skill finds the highest-probability trade setups by measuring which tokens
 are leading or lagging the broader market, then dispatching actionable TRADE_NOW
 directives with all required parameters pre-filled.
 
+## Step 0: Feature Gate Check
+Before proceeding, check if prediction markets are enabled:
+- Read the environment variable `FEATURE_PREDICTIONS` (or check your config)
+- If `FEATURE_PREDICTIONS` is NOT "true" or is unset/empty:
+  - SKIP any prediction-related dispatch steps
+  - Continue with trading-related steps only
+  - Note in your output: "Prediction markets disabled by FEATURE_PREDICTIONS toggle"
+
 ## Step 1: Baseline Fetch
 - Call get_crypto_prices for the full watchlist:
   bitcoin, ethereum, solana, arbitrum, optimism, matic-network, avalanche-2,
