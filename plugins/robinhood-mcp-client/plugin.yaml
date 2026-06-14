@@ -1,0 +1,5 @@
+name: robinhood-mcp-client
+version: "1.0"
+description: "Adapter tools for Robinhood MCP agentic account trading and portfolio checks."
+requires_env:
+  - ROBINHOOD_MCP_SERVER

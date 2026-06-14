@@ -9,28 +9,29 @@ description: Analyze crypto market sentiment and create a Market Context Brief f
 Before proceeding, check if prediction markets are enabled:
 - Read the environment variable `FEATURE_PREDICTIONS` (or check your config)
 - If `FEATURE_PREDICTIONS` is NOT "true" or is unset/empty:
-  - SKIP all prediction-related steps below (Steps 2 Polymarket, Step 4 BET_NOW dispatch)
+  - SKIP all prediction-related steps below (Steps 2 Kalshi, Step 4 BET_NOW dispatch)
   - Continue with trading-related steps only
   - Note in your output: "Prediction markets disabled by FEATURE_PREDICTIONS toggle"
 
 ## Step 1: Gather Market Data
-Use the `sentiment_search` tool with the following tokens:
+Use the built-in `web_search` tool to gather market data for the following tokens:
 - BTC, ETH, SOL (always include these core assets)
 - Any tokens currently in the portfolio (check with `benki_db_query_trades`)
 
+Search for each token with queries like:
+- "[TOKEN] price analysis last 4h"
+- "[TOKEN] whale movements today"
+- "[TOKEN] on-chain metrics sentiment"
+
+Also search for general market data:
+- "crypto market fear greed index today"
+- "DeFi TVL changes last 24 hours"
+- "crypto liquidations last 24 hours"
+- "Kalshi trending prediction markets crypto" (ONLY if FEATURE_PREDICTIONS is enabled)
+
 Use a 4-hour lookback timeframe for regular scans, 1-hour for urgent scans.
 
-## Step 2: Execute Web Searches
-For each query returned by `sentiment_search`, use the built-in `web_search` tool.
-Focus on:
-- Price action and technical indicators
-- Whale movements and on-chain metrics
-- Liquidation data
-- Fear & Greed Index
-- DeFi TVL changes
-- Active Polymarket prediction markets (crypto-related) — ONLY if FEATURE_PREDICTIONS is enabled
-
-## Step 3: Score the Signals
+## Step 2: Score the Signals
 Use the `score_sentiment` tool with collected signals:
 - Classify each data point as `bullish`, `bearish`, or `neutral`
 - Include source and confidence for each signal

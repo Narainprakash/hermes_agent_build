@@ -1,6 +1,6 @@
 ###############################################################################
 # Benki Multi-Agent Crypto System — Docker Compose
-# 4 services: PostgreSQL + 3 hermes-agent gateway instances
+# Active services: PostgreSQL + orchestrator + predictor + UI
 ###############################################################################
 
 services:
@@ -36,41 +36,7 @@ services:
     container_name: benki-main
     restart: unless-stopped
     user: "root"
-    entrypoint:
-      - /bin/bash
-      - -c
-      - |
-        source /opt/hermes/.venv/bin/activate
-        mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
-        cp /opt/config.yaml /opt/data/config.yaml
-
-        # ── Reset cron next_run_at so jobs fire immediately on startup ──
-        python3 - <<'PYEOF'
-        import json, os
-        from datetime import datetime, timezone, timedelta
-
-        cron_file = "/opt/data/cron/jobs.json"
-        if os.path.exists(cron_file):
-            with open(cron_file) as f:
-                data = json.load(f)
-            
-            # Schedule 90s from now — gives agent time to finish booting
-            trigger_at = (datetime.now(timezone.utc) + timedelta(seconds=90)).strftime(
-                "%Y-%m-%dT%H:%M:%S+00:00"
-            )
-            changed = 0
-            for job in data.get("jobs", []):
-                if job.get("enabled", True) and job.get("state") != "paused":
-                    job["next_run_at"] = trigger_at
-                    changed += 1
-            
-            with open(cron_file, "w") as f:
-                json.dump(data, f, indent=2)
-                print(f"[startup] Reset next_run_at for {changed} cron job(s) → {trigger_at}")
-        PYEOF
-
-        chown -R hermes:hermes /opt/data
-        exec gosu hermes hermes gateway
+    entrypoint: ["/bin/bash", "/opt/start-hermes-agent.sh"]
     env_file:
       - ./configs/main/.env
     environment:
@@ -82,14 +48,15 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
       API_SERVER_CORS_ORIGINS: "http://localhost:3000"
       HERMES_ALLOW_PRIVATE_URLS: "false"
-      HERMES_REDACT_SECRETS: "false"
+      HERMES_REDACT_SECRETS: "true"
       HERMES_CRON_TIMEOUT: "0"
       HERMES_CRON_MAX_PARALLEL: "4"
+      HERMES_CRON_STARTUP_DELAY_SECONDS: "90"
       HERMES_AGENT_TIMEOUT: "1800"
       SESSION_IDLE_MINUTES: "1440"
       # Feature toggles — passed to skills
-      FEATURE_TRADING: "true"
-      FEATURE_PREDICTIONS: "false"
+      FEATURE_TRADING: ${FEATURE_TRADING:-false}
+      FEATURE_PREDICTIONS: ${FEATURE_PREDICTIONS:-false}
     volumes:
       - main-data:/opt/data
       # Add new mount for cron loops
@@ -100,10 +67,11 @@ services:
       - ./plugins/sentiment-parser:/opt/data/plugins/sentiment-parser
       # Plugin: db_client
       - ./plugins/db-client:/opt/data/plugins/db-client
-      # Plugin: market_fetch (live prices + Polymarket, no API key required)
+      # Plugin: market_fetch (live prices + Kalshi, no API key required for discovery)
       - ./plugins/market-fetch:/opt/data/plugins/market-fetch
       # Config overlay
       - ./configs/main/config.yaml:/opt/config.yaml:ro
+      - ./scripts/start-hermes-agent.sh:/opt/start-hermes-agent.sh:ro
       # Skills
       - ./skills/main:/opt/data/skills/custom
     networks:
@@ -126,45 +94,12 @@ services:
 
   # ─── Benki Trader (DeFi Execution) ──────────────────────────────────
   benki-trader:
+    profiles: ["disabled"]
     image: nousresearch/hermes-agent:latest
     container_name: benki-trader
     restart: unless-stopped
     user: "root"
-    entrypoint:
-      - /bin/bash
-      - -c
-      - |
-        source /opt/hermes/.venv/bin/activate
-        mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
-        cp /opt/config.yaml /opt/data/config.yaml
-
-        # ── Reset cron next_run_at so jobs fire immediately on startup ──
-        python3 - <<'PYEOF'
-        import json, os
-        from datetime import datetime, timezone, timedelta
-
-        cron_file = "/opt/data/cron/jobs.json"
-        if os.path.exists(cron_file):
-            with open(cron_file) as f:
-                data = json.load(f)
-            
-            # Schedule 90s from now — gives agent time to finish booting
-            trigger_at = (datetime.now(timezone.utc) + timedelta(seconds=90)).strftime(
-                "%Y-%m-%dT%H:%M:%S+00:00"
-            )
-            changed = 0
-            for job in data.get("jobs", []):
-                if job.get("enabled", True) and job.get("state") != "paused":
-                    job["next_run_at"] = trigger_at
-                    changed += 1
-            
-            with open(cron_file, "w") as f:
-                json.dump(data, f, indent=2)
-                print(f"[startup] Reset next_run_at for {changed} cron job(s) → {trigger_at}")
-        PYEOF
-
-        chown -R hermes:hermes /opt/data
-        exec gosu hermes hermes gateway
+    entrypoint: ["/bin/bash", "/opt/start-hermes-agent.sh"]
     env_file:
       - ./configs/trader/.env
     environment:
@@ -175,13 +110,14 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
       API_SERVER_CORS_ORIGINS: "http://localhost:3000"
       HERMES_ALLOW_PRIVATE_URLS: "false"
-      HERMES_REDACT_SECRETS: "false"
+      HERMES_REDACT_SECRETS: "true"
       HERMES_CRON_TIMEOUT: "0"
       HERMES_CRON_MAX_PARALLEL: "4"
+      HERMES_CRON_STARTUP_DELAY_SECONDS: "150"
       HERMES_AGENT_TIMEOUT: "1800"
       SESSION_IDLE_MINUTES: "1440"
       # Feature toggles — passed to skills
-      FEATURE_TRADING: "true"
+      FEATURE_TRADING: ${FEATURE_TRADING:-false}
       FEATURE_PREDICTIONS: "false"
     volumes:
       - trader-data:/opt/data
@@ -189,13 +125,13 @@ services:
       - ./cron/trader:/opt/data/cron
       # Plugins
       - ./plugins/risk-manager:/opt/data/plugins/risk-manager
-      - ./plugins/evm-client:/opt/data/plugins/evm-client
-      - ./plugins/solana-client:/opt/data/plugins/solana-client
+      - ./plugins/robinhood-mcp-client:/opt/data/plugins/robinhood-mcp-client
       - ./plugins/db-client:/opt/data/plugins/db-client
       # Plugin: market_fetch (prices for position management)
       - ./plugins/market-fetch:/opt/data/plugins/market-fetch
       # Config overlay
       - ./configs/trader/config.yaml:/opt/config.yaml:ro
+      - ./scripts/start-hermes-agent.sh:/opt/start-hermes-agent.sh:ro
       # Skills
       - ./skills/trader:/opt/data/skills/custom
     networks:
@@ -229,18 +165,18 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       # Must match the API_SERVER_KEY set on the agent services above
       API_SERVER_KEY: ${API_SERVER_KEY}
+      DASHBOARD_TOKEN: ${DASHBOARD_TOKEN:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       MINIMAX_API_KEY: ${MINIMAX_API_KEY}
       GATEWAY_PORT: "8642"
       HEALTH_PATH: /health
       MAIN_HOST: benki-main
-      TRADER_HOST: benki-trader
       PREDICTOR_HOST: benki-predictor
       TRADING_CHANNEL_ID: "1494494694057709789"
       PREDICTIONS_CHANNEL_ID: "1494494936182165705"
       # Feature toggles — control which markets are active
-      FEATURE_TRADING: "true"
-      FEATURE_PREDICTIONS: "false"
+      FEATURE_TRADING: ${FEATURE_TRADING:-false}
+      FEATURE_PREDICTIONS: ${FEATURE_PREDICTIONS:-false}
     networks:
       - benki-net
     depends_on:
@@ -259,41 +195,7 @@ services:
     container_name: benki-predictor
     restart: unless-stopped
     user: "root"
-    entrypoint:
-      - /bin/bash
-      - -c
-      - |
-        source /opt/hermes/.venv/bin/activate
-        mkdir -p /opt/data/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
-        cp /opt/config.yaml /opt/data/config.yaml
-
-        # ── Reset cron next_run_at so jobs fire immediately on startup ──
-        python3 - <<'PYEOF'
-        import json, os
-        from datetime import datetime, timezone, timedelta
-
-        cron_file = "/opt/data/cron/jobs.json"
-        if os.path.exists(cron_file):
-            with open(cron_file) as f:
-                data = json.load(f)
-            
-            # Schedule 90s from now — gives agent time to finish booting
-            trigger_at = (datetime.now(timezone.utc) + timedelta(seconds=90)).strftime(
-                "%Y-%m-%dT%H:%M:%S+00:00"
-            )
-            changed = 0
-            for job in data.get("jobs", []):
-                if job.get("enabled", True) and job.get("state") != "paused":
-                    job["next_run_at"] = trigger_at
-                    changed += 1
-            
-            with open(cron_file, "w") as f:
-                json.dump(data, f, indent=2)
-                print(f"[startup] Reset next_run_at for {changed} cron job(s) → {trigger_at}")
-        PYEOF
-
-        chown -R hermes:hermes /opt/data
-        exec gosu hermes hermes gateway
+    entrypoint: ["/bin/bash", "/opt/start-hermes-agent.sh"]
     env_file:
       - ./configs/predictor/.env
     environment:
@@ -304,27 +206,26 @@ services:
       API_SERVER_KEY: ${API_SERVER_KEY}
       API_SERVER_CORS_ORIGINS: "http://localhost:3000"
       HERMES_ALLOW_PRIVATE_URLS: "false"
-      HERMES_REDACT_SECRETS: "false"
+      HERMES_REDACT_SECRETS: "true"
       HERMES_CRON_TIMEOUT: "0"
       HERMES_CRON_MAX_PARALLEL: "4"
+      HERMES_CRON_STARTUP_DELAY_SECONDS: "210"
       HERMES_AGENT_TIMEOUT: "1800"
       SESSION_IDLE_MINUTES: "1440"
       # Feature toggles — passed to skills
-      FEATURE_TRADING: "true"
-      FEATURE_PREDICTIONS: "false"
+      FEATURE_TRADING: "false"
+      FEATURE_PREDICTIONS: ${FEATURE_PREDICTIONS:-false}
     volumes:
       - predictor-data:/opt/data
       # Add new mount for cron loops
       - ./cron/predictor:/opt/data/cron
       # Plugins
       - ./plugins/risk-manager:/opt/data/plugins/risk-manager
-      - ./plugins/evm-client:/opt/data/plugins/evm-client
-      - ./plugins/solana-client:/opt/data/plugins/solana-client
-      - ./plugins/polymarket-client:/opt/data/plugins/polymarket-client
-      - ./plugins/drift-bet-client:/opt/data/plugins/drift-bet-client
+      - ./plugins/kalshi-client:/opt/data/plugins/kalshi-client
       - ./plugins/db-client:/opt/data/plugins/db-client
       # Config overlay
       - ./configs/predictor/config.yaml:/opt/config.yaml:ro
+      - ./scripts/start-hermes-agent.sh:/opt/start-hermes-agent.sh:ro
       # Skills
       - ./skills/predictor:/opt/data/skills/custom
     networks:

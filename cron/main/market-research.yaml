@@ -1,5 +1,9 @@
 # cron/main/market-research.yaml (v4 — with funding rates + fixed schedule)
-# Every 2 hours. Added full watchlist + funding rate signals.
+# REFERENCE DOCUMENTATION ONLY — This file is NOT executed by Hermes.
+# The active schedule is defined in cron/main/jobs.json (currently: every 240 minutes).
+# This YAML serves as documentation for the market-research cron job logic.
+#
+# Every 2 hours (documented schedule). Added full watchlist + funding rate signals.
 schedule: "0 */2 * * *"
 prompt: |
   CRON TRIGGER: 2-Hour Market Research Cycle
@@ -7,14 +11,13 @@ prompt: |
   FEATURE GATE CHECK (MANDATORY — do this first):
   - Check the environment variable FEATURE_PREDICTIONS (or your config)
   - If FEATURE_PREDICTIONS is NOT "true" or is unset:
-    → SKIP steps 5, 7, and 9 below (all prediction-related steps)
-    → Continue with crypto trading steps only (1-4, 6, 8, 10-11)
+      → SKIP steps 5, 7, and 10 below (all prediction-related steps)
+      → Continue with Robinhood MCP trading steps only (1-4, 6, 8-9, 11-12)
     → Note in your MCB: "Prediction markets disabled by FEATURE_PREDICTIONS toggle"
 
   YOUR INSTRUCTIONS:
   1. Fetch prices for the FULL watchlist:
-     get_crypto_prices for: ["bitcoin","ethereum","solana","arbitrum","optimism",
-     "matic-network","avalanche-2","chainlink","render-token","injective-protocol","dogwifhat","pepe"]
+     get_crypto_prices for crypto macro context: ["bitcoin","ethereum","solana","arbitrum","optimism","matic-network","avalanche-2","chainlink","render-token","injective-protocol","jito-governance-token","dogwifcoin","bonk","pepe"]
 
   2. Fetch fear_greed_index (7-day history to spot trend direction, not just current value)
 
@@ -27,8 +30,8 @@ prompt: |
      search_news for "crypto altcoin momentum breakout today"
      search_news for "Bitcoin Ethereum market sentiment today"
 
-  5. Fetch Polymarket top markets (ONLY if FEATURE_PREDICTIONS is enabled):
-     get_polymarket_markets with min_volume=50000, limit=20
+  5. Fetch Kalshi top markets (ONLY if FEATURE_PREDICTIONS is enabled):
+     get_kalshi_markets with min_volume=50000, limit=20
      If disabled, skip this step entirely.
 
   6. MOMENTUM ANALYSIS — for each token:
@@ -38,7 +41,7 @@ prompt: |
      - ALSO check funding rate signal: if funding is negative AND token is outperforming → VERY STRONG BUY
 
   7. PREDICTION EDGE SCAN (ONLY if FEATURE_PREDICTIONS is enabled):
-     For each Polymarket market found in step 5:
+     For each Kalshi market found in step 5:
      - Estimate your probability using news + base rates
      - Calculate edge = your_probability - market_probability
      - Markets with edge > 5%: include a BET_NOW directive
@@ -54,8 +57,8 @@ prompt: |
      ```json
      {
        "directive": "TRADE_NOW",
-       "asset": "[TOKEN/USDC]",
-       "chain": "[solana/polygon]",
+          "asset": "[ROBINHOOD_SYMBOL]",
+          "venue": "robinhood_mcp",
        "action": "[buy/sell]",
        "confidence": [X.X],
        "win_probability": [0.0-1.0],
@@ -76,7 +79,7 @@ prompt: |
       {
         "directive": "BET_NOW",
         "market": "[exact question]",
-        "platform": "[polymarket/drift_bet]",
+            "platform": "kalshi",
         "position": "[yes/no]",
         "my_probability": [X.X],
         "market_probability": [X.X],

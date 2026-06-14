@@ -1,3 +1,6 @@
+# REFERENCE DOCUMENTATION ONLY — This file is NOT executed by Hermes.
+# The active schedule is defined in cron/main/jobs.json.
+# This YAML serves as documentation for the daily-pnl-reset cron job logic.
 schedule: "0 0 * * *"
 prompt: |
   CRON TRIGGER: Daily P&L Reset

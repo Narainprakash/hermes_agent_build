@@ -1,6 +1,6 @@
 ---
 name: manage-bets
-description: Review open Polymarket and Drift bets to determine if positions should be closed early based on shifting probabilities.
+description: Review open Kalshi bets to determine if positions should be closed early based on shifting probabilities.
 ---
 
 # Bet Management Procedure
@@ -20,7 +20,7 @@ Before proceeding, check if prediction markets are enabled:
 
 ## Step 2: Re-Evaluate Edge
 For each open bet:
-- Use `polymarket_search` or `drift_bet_search` to find the current market probability.
+- Use `kalshi_search` to find the current market probability.
 - Use `web_search` to reassess the real-world probability.
 - Calculate the new edge.
 
@@ -31,7 +31,7 @@ For each open bet:
 ## Step 4: Execute Exits
 For each early exit:
 - Call `risk_check` with action="sell_bet".
-- Execute via `polymarket_order` or `drift_bet_order` to close the position.
+- Execute via `kalshi_order` to close the position.
 - Log to PostgreSQL.
 - Update `MEMORY.md` with the resolution.
 - Post a JSON report in #predictor tagging @benki_main.

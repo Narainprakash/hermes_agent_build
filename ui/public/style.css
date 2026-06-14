@@ -650,8 +650,8 @@ body::before {
 .badge-bet_yes { background: var(--cyan-dim);   color: var(--cyan); }
 .badge-bet_no  { background: var(--amber-dim);  color: var(--amber); }
 
-.badge-solana  { background: var(--purple-dim); color: var(--purple); }
-.badge-polygon { background: rgba(100,60,240,0.15); color: #818cf8; }
+.badge-robinhood_mcp { background: var(--purple-dim); color: var(--purple); }
+.badge-kalshi { background: rgba(100,60,240,0.15); color: #818cf8; }
 
 .badge-pending  { background: var(--amber-dim);  color: var(--amber); }
 .badge-executed { background: var(--green-dim);  color: var(--green); }

@@ -4,6 +4,8 @@
 .env
 .env.*
 configs/*/.env
+!.env.example
+!configs/*/.env.example
 *.key
 *.pem
 *.p12
@@ -13,6 +15,7 @@ configs/*/.env
 # Wallet / key files (any format)
 wallets/
 wallet/
+secrets/
 *.wallet
 *.seed
 *.mnemonic
@@ -72,6 +75,12 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Local deployment notes / scratch audits (may include hostnames, IPs, or secrets)
+VPS_NOTES.md
+DEPLOYMENT_LOCAL.md
+*.local.md
+.security_scan.py
 
 # ═══════════════════════════════════════════════════════════════
 # Runtime / operational data

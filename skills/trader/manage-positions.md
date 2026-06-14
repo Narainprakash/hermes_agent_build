@@ -5,13 +5,13 @@ description: Review open positions every hour against TP/SL targets. Execute exi
 
 # Position Management Procedure (v3 — improved)
 
-This runs every hour via cron. This is where gains are LOCKED IN and losses are CUT.
+This runs every hour via cron. This is where Robinhood MCP gains are LOCKED IN and losses are CUT.
 Sloppy position management is the #1 reason trading systems fail to compound.
 
 ## Step 1: Load Open Positions from MEMORY.md
 Read MEMORY.md and extract all blocks with `Status: OPEN`.
 For each position, record:
-- Token, chain, entry price
+- Symbol, venue, entry price
 - TP target and SL target
 - Size and timestamp
 
@@ -46,7 +46,7 @@ If current_pnl_pct > +5% AND position SL is still below entry:
 ## Step 5: Partial Exit Execution
 For PARTIAL EXIT (50% at +10% gain, age >24h):
 - Call risk_check with action="sell", amount=position_size/2
-- If approved, execute sell via solana_swap or evm_swap
+- If approved, execute sell via robinhood_mcp_order
 - Update MEMORY.md: reduce size by 50%, note "50% taken at +X%"
 - Leave remaining 50% open with SL now at break-even
 
@@ -101,7 +101,7 @@ After computing all position values, you MUST update the daily P&L tracker:
    - trades_executed: number of exits executed this session
 3. Check the response — if `circuit_breaker_hit` is true, post an URGENT alert in #general tagging @vernon_bella and @bud916
 
-**Without this step, drawdown tracking is broken and the 10% circuit breaker will NEVER fire.**
+**Without this step, drawdown tracking is broken and the 5% circuit breaker will NEVER fire.**
 
 ## Step 9: Log and Update MEMORY.md
 - Call benki_db_log_cron(agent="trader", cron_name="manage-positions", status="success")

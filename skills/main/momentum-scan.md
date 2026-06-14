@@ -19,8 +19,7 @@ Before proceeding, check if prediction markets are enabled:
 
 ## Step 1: Baseline Fetch
 - Call get_crypto_prices for the full watchlist:
-  bitcoin, ethereum, solana, arbitrum, optimism, matic-network, avalanche-2,
-  chainlink, render-token, injective-protocol, dogwifhat, pepe
+  bitcoin, ethereum, solana, arbitrum, optimism, matic-network, avalanche-2, chainlink, render-token, injective-protocol, jito-governance-token, dogwifcoin, bonk, pepe
 - Record BTC 24h change as the BASELINE
 
 ## Step 2: Momentum Score Each Token
@@ -56,8 +55,8 @@ For each token that passes Steps 2-4 with final_confidence >= 0.60:
 ```json
 {
   "directive": "TRADE_NOW",
-  "asset": "[TOKEN]/USDC",
-  "chain": "[solana/polygon]",
+  "asset": "[ROBINHOOD_SYMBOL]",
+  "venue": "robinhood_mcp",
   "action": "[buy/sell]",
   "confidence": "[final_confidence]",
   "win_probability": "[use table below]",

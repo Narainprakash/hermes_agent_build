@@ -12,8 +12,8 @@ prompt: |
   YOUR INSTRUCTIONS:
   1. Read MEMORY.md — check CALIBRATION STATUS at the top.
      If it says "PAUSED" or active edge minimum is "ZERO": post that you are paused and STOP.
-  2. Run your `polymarket-scan` procedure now.
-     - Scan BOTH Polymarket AND Drift BET for opportunities.
+  2. Run your `kalshi-scan` procedure now.
+     - Scan Kalshi for opportunities.
      - Do NOT wait for a BET_NOW from benki_main — find your own edges.
      - Use the active edge minimum from MEMORY.md (default 5% if not set).
   3. For any market where you find sufficient edge, follow the full risk_check → execute → log flow.

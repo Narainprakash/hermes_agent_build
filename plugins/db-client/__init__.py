@@ -3,47 +3,20 @@ Benki DB Client Plugin
 ======================
 PostgreSQL read/write interface for the Benki trading system.
 Provides tools for logging trades, querying P&L, and storing sentiment briefs.
-Uses connection pooling for efficiency under cron load.
+Uses shared connection pool from plugins/shared/db_pool.py.
 """
 
 import os
 import json
 from datetime import date
-
-# Connection pool â€” created lazily on first use
-_db_pool = None
-
-
-def _get_db_url():
-    return os.environ.get("BENKI_DB_URL", "")
-
-
-async def _get_pool():
-    """Get or create the asyncpg connection pool."""
-    global _db_pool
-    if _db_pool is None:
-        db_url = _get_db_url()
-        if not db_url:
-            return None
-        try:
-            import asyncpg
-            _db_pool = await asyncpg.create_pool(
-                db_url,
-                min_size=2,
-                max_size=10,
-                command_timeout=30,
-                server_settings={
-                    'application_name': 'benki_db_client'
-                }
-            )
-        except Exception:
-            return None
-    return _db_pool
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from db_pool import get_pool
 
 
 async def handle_log_trade(params, **kwargs):
     """Log a trade execution to the database."""
-    pool = await _get_pool()
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -72,7 +45,7 @@ async def handle_log_trade(params, **kwargs):
 
 async def handle_query_trades(params, **kwargs):
     """Query recent trades from the database."""
-    pool = await _get_pool()
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -120,7 +93,7 @@ async def handle_query_trades(params, **kwargs):
 
 async def handle_query_daily_pnl(params, **kwargs):
     """Query daily P&L for a given date (defaults to today)."""
-    pool = await _get_pool()
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -155,7 +128,7 @@ async def handle_query_daily_pnl(params, **kwargs):
 
 async def handle_log_sentiment(params, **kwargs):
     """Log a sentiment brief to the database."""
-    pool = await _get_pool()
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -178,7 +151,7 @@ async def handle_log_sentiment(params, **kwargs):
 
 async def handle_reset_daily_pnl(params, **kwargs):
     """Reset daily P&L starting balance from previous day."""
-    pool = await _get_pool()
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -186,9 +159,10 @@ async def handle_reset_daily_pnl(params, **kwargs):
         async with pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO daily_pnl (date, starting_balance_usd)
-                   VALUES (CURRENT_DATE, (
-                     SELECT ending_balance_usd FROM daily_pnl
-                     WHERE date = CURRENT_DATE - 1
+                   VALUES (CURRENT_DATE, COALESCE(
+                     (SELECT ending_balance_usd FROM daily_pnl WHERE date = CURRENT_DATE - 1),
+                     (SELECT ending_balance_usd FROM daily_pnl ORDER BY date DESC LIMIT 1),
+                     200
                    ))
                    ON CONFLICT (date) DO NOTHING;"""
             )
@@ -199,7 +173,7 @@ async def handle_reset_daily_pnl(params, **kwargs):
 
 async def handle_log_cron(params, **kwargs):
     """Log a cron execution to the database."""
-    pool = await _get_pool()
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -224,7 +198,7 @@ async def handle_update_daily_pnl(params, **kwargs):
     and compute drawdown percentage. CRITICAL for circuit breaker to function.
     Uses the user-specified 5% daily drawdown limit.
     """
-    pool = await _get_pool()
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -295,7 +269,7 @@ async def handle_update_daily_pnl(params, **kwargs):
 
 async def handle_log_prediction(params, **kwargs):
     """Log a prediction market bet to the database."""
-    pool = await _get_pool()
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -308,7 +282,7 @@ async def handle_log_prediction(params, **kwargs):
                     entry_price, resolution_date, status, notes)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)""",
                 params.get("agent", "predictor"),
-                params.get("platform", "polymarket"),
+                params.get("platform", "kalshi"),
                 params.get("market_id", ""),
                 params.get("market_question", ""),
                 params.get("position", "yes"),
@@ -327,8 +301,8 @@ async def handle_log_prediction(params, **kwargs):
 
 
 async def handle_log_command(params, **kwargs):
-    """Log a commander-worker directive to the agent_commands table."""
-    pool = await _get_pool()
+    """Log a commander-worker directive to the database."""
+    pool = await get_pool()
     if not pool:
         return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
 
@@ -342,11 +316,75 @@ async def handle_log_command(params, **kwargs):
             if isinstance(response_json, str):
                 response_json = _json.loads(response_json)
 
-            await conn.execute(
+            row = await conn.fetchrow(
                 """INSERT INTO agent_commands
                    (commander, worker, directive_type, directive_json,
-                    response_json, response_status, feedback_loop_closed)
-                   VALUES (, , , , , , )""",
+                    response_json, response_status, response_at, feedback_loop_closed)
+                   VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8)
+                   RETURNING id""",
+                params.get("commander", "main"),
+                params.get("worker", "unknown"),
+                params.get("directive_type", "TRADE_NOW"),
+                _json.dumps(directive_json),
+                _json.dumps(response_json) if response_json else None,
+                params.get("response_status", "pending"),
+                params.get("response_at", None),
+                params.get("feedback_loop_closed", False)
+            )
+            return json.dumps({
+                "success": True,
+                "message": "Command logged successfully",
+                "command_id": row["id"] if row else None
+            })
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+async def handle_update_command(params, **kwargs):
+    """Update a command with worker response by command_id/id. Inserts only as fallback."""
+    pool = await get_pool()
+    if not pool:
+        return json.dumps({"error": "BENKI_DB_URL not configured or pool creation failed"})
+
+    try:
+        import json as _json
+        async with pool.acquire() as conn:
+            command_id = params.get("command_id") or params.get("id")
+            response_json = params.get("response_json", {})
+            directive_json = params.get("directive_json", {})
+            if isinstance(response_json, str):
+                response_json = _json.loads(response_json)
+            if isinstance(directive_json, str):
+                directive_json = _json.loads(directive_json)
+
+            if command_id:
+                result = await conn.execute(
+                    """UPDATE agent_commands
+                       SET response_json = $2::jsonb,
+                           response_status = $3,
+                           response_at = NOW(),
+                           feedback_loop_closed = $4
+                       WHERE id = $1""",
+                    int(command_id),
+                    _json.dumps(response_json) if response_json else None,
+                    params.get("response_status", "pending"),
+                    params.get("feedback_loop_closed", False)
+                )
+                updated = int(result.split()[-1]) if result and result.startswith("UPDATE") else 0
+                if updated:
+                    return json.dumps({
+                        "success": True,
+                        "message": "Command updated successfully",
+                        "command_id": int(command_id),
+                        "updated": updated
+                    })
+
+            row = await conn.fetchrow(
+                """INSERT INTO agent_commands
+                   (commander, worker, directive_type, directive_json,
+                    response_json, response_status, response_at, feedback_loop_closed)
+                   VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, NOW(), $7)
+                   RETURNING id""",
                 params.get("commander", "main"),
                 params.get("worker", "unknown"),
                 params.get("directive_type", "TRADE_NOW"),
@@ -355,7 +393,12 @@ async def handle_log_command(params, **kwargs):
                 params.get("response_status", "pending"),
                 params.get("feedback_loop_closed", False)
             )
-            return json.dumps({"success": True, "message": "Command logged successfully"})
+            return json.dumps({
+                "success": True,
+                "message": "No matching command_id found; inserted command response as fallback",
+                "command_id": row["id"] if row else None,
+                "inserted_fallback": True
+            })
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -371,8 +414,8 @@ def register(ctx):
             "type": "object",
             "properties": {
                 "agent": {"type": "string", "description": "Agent: 'trader' or 'predictor'"},
-                "chain": {"type": "string", "description": "Chain: 'solana' or 'polygon'"},
-                "platform": {"type": "string", "description": "Platform: 'jupiter', 'uniswap', 'polymarket', 'drift_bet'"},
+                "chain": {"type": "string", "description": "Venue: 'robinhood_mcp' or 'kalshi'"},
+                "platform": {"type": "string", "description": "Platform: 'robinhood_mcp' or 'kalshi'"},
                 "action": {"type": "string", "description": "Action: 'buy', 'sell', 'bet_yes', 'bet_no'"},
                 "market": {"type": "string", "description": "Token pair or market name"},
                 "amount": {"type": "number", "description": "Trade amount in USD"},
@@ -460,7 +503,7 @@ def register(ctx):
         "description": (
             "Update today's daily P&L with current portfolio value and compute drawdown. "
             "MUST be called after every trade execution and during hourly position reviews. "
-            "This is what makes the circuit breaker work — without it, drawdown is always 0%."
+            "This is what makes the circuit breaker work ï¿½ without it, drawdown is always 0%."
         ),
         "parameters": {
             "type": "object",
@@ -497,7 +540,7 @@ def register(ctx):
             "type": "object",
             "properties": {
                 "agent": {"type": "string", "description": "Agent name (default: 'predictor')"},
-                "platform": {"type": "string", "description": "Platform: 'polymarket' or 'drift_bet'"},
+                "platform": {"type": "string", "description": "Platform: 'kalshi'"},
                 "market_id": {"type": "string", "description": "Market/token ID"},
                 "market_question": {"type": "string", "description": "Full market question text"},
                 "position": {"type": "string", "description": "'yes' or 'no'"},
@@ -531,3 +574,23 @@ def register(ctx):
             "required": ["worker", "directive_type", "directive_json"]
         }
     }, handle_log_command, is_async=True)
+
+    ctx.register_tool("benki_db_update_command", "benki_db", {
+        "name": "benki_db_update_command",
+        "description": "Update a command with worker response.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "command_id": {"type": "integer", "description": "ID returned by benki_db_log_command. Preferred lookup key."},
+                "id": {"type": "integer", "description": "Alias for command_id."},
+                "commander": {"type": "string", "description": "Commander agent (default: 'main')"},
+                "worker": {"type": "string", "description": "Worker agent: 'trader' or 'predictor'"},
+                "directive_type": {"type": "string", "description": "'TRADE_NOW' or 'BET_NOW'"},
+                "directive_json": {"type": "object", "description": "The full directive as JSON"},
+                "response_json": {"type": "object", "description": "Worker response as JSON"},
+                "response_status": {"type": "string", "description": "'pending', 'executed', 'rejected', 'skipped'"},
+                "feedback_loop_closed": {"type": "boolean", "description": "Whether main acknowledged the response"}
+            },
+            "required": ["response_json", "response_status"]
+        }
+    }, handle_update_command, is_async=True)

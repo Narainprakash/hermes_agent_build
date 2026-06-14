@@ -6,10 +6,8 @@ description: Check current portfolio positions, balances, and open P&L
 # Portfolio Review Procedure
 
 ## Step 1: Check Balances
-- Call `solana_balance` for native SOL
-- Call `solana_balance` for key SPL tokens (USDC, etc.)
-- Call `evm_balance` for native MATIC
-- Call `evm_balance` for key ERC-20 tokens (USDC, WETH, etc.)
+- Call `robinhood_mcp_account` for account context
+- Call `robinhood_mcp_positions` for balances and positions
 
 ## Step 2: Review Open Positions
 - Call `benki_db_query_trades` filtered by agent="trader" to see recent trades
@@ -24,8 +22,8 @@ description: Check current portfolio positions, balances, and open P&L
 Post a portfolio summary in #trading:
 
 💼 **Portfolio Status**
-**Solana:** [SOL balance] SOL + [token balances]
-**Polygon:** [MATIC balance] MATIC + [token balances]
+**Robinhood MCP Account:** [account id / status]
+**Positions:** [symbols and values]
 **Open Positions:** [count]
-**Daily Drawdown:** [X%] / 10% limit
+**Daily Drawdown:** [X%] / 5% limit
 **Status:** [Healthy / Warning / Critical]
