@@ -109,7 +109,7 @@ adduser benki
 usermod -aG sudo benki
 ```
 
-Optional but recommended: configure SSH key login from your local machine:
+Optional but recommended: configure SSH key login from your local machine. Preferably use ED25519 SHA 256 keys:
 
 ```bash
 mkdir -p /home/benki/.ssh
@@ -157,14 +157,49 @@ Keep one existing SSH session open while testing a new login.
 
 ### 5. Install Docker Engine and Compose plugin
 
+First detect the VPS OS. Netcup images are often Debian, and using the Ubuntu Docker repository on Debian causes `Package docker-ce is not available` errors.
+
 ```bash
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-chmod a+r /etc/apt/keyrings/docker.gpg
 . /etc/os-release
-printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu %s stable\n' "$(dpkg --print-architecture)" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
+echo "$ID $VERSION_CODENAME"
+```
+
+Then install Docker with the repository that matches the detected OS:
+
+```bash
+apt -y remove docker docker-engine docker.io containerd runc podman-docker || true
+apt -y install ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+
+. /etc/os-release
+case "$ID" in
+   ubuntu|debian)
+      DOCKER_OS="$ID"
+      ;;
+   *)
+      echo "Unsupported OS ID: $ID. Use Docker's official install docs for this distro."
+      exit 1
+      ;;
+esac
+
+rm -f /etc/apt/sources.list.d/docker.list
+curl -fsSL "https://download.docker.com/linux/${DOCKER_OS}/gpg" | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/%s %s stable\n' "$(dpkg --print-architecture)" "$DOCKER_OS" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
+
 apt update
+apt-cache policy docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 apt -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl enable --now docker
+usermod -aG docker benki
+```
+
+If `apt-cache policy docker-ce` still shows no candidate, the VPS image codename may not be supported by Docker yet. Use the convenience installer fallback:
+
+```bash
+curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+sh /tmp/get-docker.sh
+apt -y install docker-buildx-plugin docker-compose-plugin || true
 systemctl enable --now docker
 usermod -aG docker benki
 ```
