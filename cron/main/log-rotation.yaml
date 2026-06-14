@@ -1,0 +1,14 @@
+name: log-rotation
+description: Weekly log rotation to prevent disk space issues
+schedule: "0 3 * * 0"  # Every Sunday at 3 AM
+enabled: true
+command: "/opt/data/scripts/log-rotation.sh"
+timeout: 300  # 5 minutes
+agent: main
+notes: |
+  This cron job runs weekly to clean up old logs, sessions, and cron output files.
+  - Logs older than 7 days are deleted (compressed after 1 day)
+  - Sessions older than 30 days are deleted
+  - Cron output files older than 14 days are deleted
+  
+  The script is mounted at /opt/data/scripts/log-rotation.sh via docker-compose volume.

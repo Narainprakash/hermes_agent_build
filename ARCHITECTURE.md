@@ -18,14 +18,14 @@ flowchart TB
         PluginM[market-fetch, sentiment-parser\nrisk-manager, db-client]
     end
 
-    subgraph Trader["⚡ Benki Trader (DeFi)"]
+    subgraph Trader["⚡ Benki Trader (Robinhood MCP)"]
         CronT[manage-positions.yaml\ndaily-reflection.yaml]
-        PluginT[evm-client, solana-client\nrisk-manager, market-fetch\ndb-client]
+        PluginT[robinhood-mcp-client\nrisk-manager, market-fetch\ndb-client]
     end
 
     subgraph Predictor["🔮 Benki Predictor (Markets)"]
         CronP[prediction-scan.yaml\nmanage-bets.yaml]
-        PluginP[polymarket-client, drift-bet-client\nevm-client, solana-client\nrisk-manager, db-client]
+        PluginP[kalshi-client\nrisk-manager, db-client]
     end
 
     subgraph DataLayer["💾 Data Layer"]
@@ -71,32 +71,32 @@ flowchart TB
 The brain of the system. It is strictly observational and analytical, and **never executes trades itself**.
 - **Role:** Ingests live market data, reads news, generates sentiment, and evaluates macro conditions.
 - **Workflow:** 
-  - A cron job (`market-research.yaml`) periodically prompts the agent to fetch prices, Polymarket odds, Fear & Greed indices, and news.
+    - A cron job (`market-research.yaml`) periodically prompts the agent to fetch prices, Kalshi odds, Fear & Greed indices, and news.
   - It constructs a structured **Market Context Brief (MCB)**.
   - It dispatches explicit `TRADE_NOW` or `BET_NOW` directives to the Trader and Predictor agents via dedicated Discord channels.
 - **Plugins/Skills used:** `market-fetch`, `sentiment-parser`, `db-client`, `risk-manager`.
 
-### 2. Benki Trader (DeFi Execution)
-The execution arm for standard crypto trades (spot trading on DEXs).
-- **Role:** Executes trades on Solana (via Jupiter) and Polygon (via Uniswap).
+### 2. Benki Trader (Robinhood MCP Execution)
+The execution arm for standard trades through a Robinhood MCP agentic account.
+- **Role:** Executes approved trades through Robinhood MCP only.
 - **Workflow:**
   - Receives `TRADE_NOW` from the Orchestrator.
   - Computes optimal position sizing using the **Kelly Criterion** based on the current portfolio value and confidence/win probability.
-  - Checks if the trade passes the momentum filter (e.g., token 24h performance > BTC).
+    - Checks whether the trade passes the configured signal and confidence filters.
   - Must get explicit **approval from the `risk-manager` plugin** (circuit breaker and max drawdown checks).
   - Executes trade, setting Take-Profit (+15-20%) and Stop-Loss (-5-8%).
   - The `manage-positions.yaml` cron routinely monitors and closes positions when TP/SL targets hit.
-- **Plugins/Skills used:** `evm-client`, `solana-client`, `risk-manager`, `market-fetch`, `db-client`.
+- **Plugins/Skills used:** `robinhood-mcp-client`, `risk-manager`, `market-fetch`, `db-client`.
 
 ### 3. Benki Predictor (Prediction Markets)
 The specialist for betting on event outcomes where the crowd is mispricing probability.
-- **Role:** Places bets on Polymarket (Polygon) and Drift BET (Solana).
+- **Role:** Places prediction-market bets on Kalshi only.
 - **Workflow:**
   - Has two pathways: responding to `BET_NOW` from Orchestrator OR doing its own independent probabilistic scans (`prediction-scan.yaml`).
   - Calculates its own Bayesian probability based on search/news and compares it to the market's implied odds.
   - Executes only if it identifies an **edge > 5%**.
   - Its `manage-bets.yaml` cron job tracks market resolutions and calculates the agent's **Brier Score** (calibration). If Brier score worsens, it automatically increases its required edge margin.
-- **Plugins/Skills used:** `polymarket-client`, `drift-bet-client`, `evm-client`, `solana-client`, `risk-manager`, `db-client`.
+- **Plugins/Skills used:** `kalshi-client`, `risk-manager`, `db-client`.
 
 ---
 
@@ -121,5 +121,7 @@ Agents use `MEMORY.md` internally via their native Hermes context loop to rememb
 
 Risk Management is hardcoded as a plugin to ensure LLM hallucinations cannot bypass limits.
 - **Position Sizing:** Trader uses Kelly Fraction, mapped to the dynamically queried PostgreSQL portfolio value. Max position size is hardcapped (e.g., 5%).
-- **Drawdown Limit & Circuit Breakers:** If `daily_pnl.drawdown_pct` crosses the hard threshold (e.g., 10%), the `risk-manager` plugin intercepts the LLM tool execution and returns a REJECTED status, preventing the transaction from being constructed or signed.
-- **Dry Run Mode:** Agents fully support a configurable `DRY_RUN` toggle in their `.env` files that simulates executions without broadcasting to the blockchain, perfect for strategy testing.
+- **Drawdown Limit & Circuit Breakers:** If `daily_pnl.drawdown_pct` crosses the hard threshold (5%), the `risk-manager` plugin intercepts the LLM tool execution and returns a REJECTED status, preventing the transaction from being constructed or signed.
+- **Dry Run Mode:** Agents fully support a configurable `DRY_RUN` toggle in their `.env` files that simulates Robinhood MCP and Kalshi executions, perfect for strategy testing.
+
+> Current deployment note: `benki-trader` is present but disabled by default with the Compose profile `disabled`. The active baseline stack is PostgreSQL, Orchestrator, Predictor, and UI. Enable the trader only after Robinhood MCP connectivity and dry-run validation are complete.

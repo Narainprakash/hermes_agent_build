@@ -1,6 +1,6 @@
 ---
 name: execute-trade
-description: Step-by-step procedure for evaluating and executing a DeFi trade. Enforces Kelly sizing, momentum filter, and TP/SL target recording.
+description: Step-by-step procedure for evaluating and executing a Robinhood MCP trade. Enforces Kelly sizing, momentum filter, and TP/SL target recording.
 ---
 
 # Trade Execution Procedure (v3 — improved)
@@ -42,10 +42,10 @@ token_momentum = token_24h_change - btc_24h_change
 Call risk_check with ALL of these fields:
 ```
 agent: "trader"
-chain: [solana or polygon]
+chain: "robinhood_mcp"
 action: [buy or sell]
 amount: [suggested_amount from directive]
-market: "[TOKEN]/USDC"
+market: "[ROBINHOOD_SYMBOL]"
 win_probability: [from directive]
 portfolio_value: [from Step 2 — REQUIRED]
 trade_type: "spot"
@@ -72,8 +72,7 @@ Call benki_db_query_trades(agent="trader", limit=5)
 - Review MEMORY.md for the existing position's TP/SL — if price has NOT hit either, stand pat
 
 ## Step 6: Execute the Trade
-Solana tokens (SOL, JTO, WIF, BONK, RNDR, INJ): use solana_swap
-EVM tokens (MATIC, ARB, OP, LINK, AVAX): use evm_swap
+Use robinhood_mcp_order for all trade execution.
 
 Use position_size from risk_check (not suggested_amount).
 
@@ -114,7 +113,7 @@ Append this block after every trade:
 ## Open Position — [TOKEN] [timestamp]
 - Entry price: $[price]
 - Size: $[amount] (Kelly: [fraction])
-- Chain: [solana/polygon]
+- Venue: robinhood_mcp
 - TP target: $[tp_price] (+X%)
 - SL target: $[sl_price] (-X%)
 - Confidence: [X.X] | Win probability: [X.X]
@@ -132,8 +131,8 @@ Report format MUST BE STRICT JSON fenced in ```json:
 {
   "report": "EXECUTION_RESULT",
   "directive_ref": "TRADE_NOW",
-  "asset": "[TOKEN]/USDC",
-  "chain": "[solana/polygon]",
+  "asset": "[ROBINHOOD_SYMBOL]",
+  "venue": "robinhood_mcp",
   "action": "[buy/sell]",
   "status": "[executed|dry_run|rejected|skipped]",
   "amount": [amount],

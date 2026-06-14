@@ -1,16 +1,19 @@
 """
 Benki Risk Manager Plugin — Hardcoded Circuit Breaker
 =====================================================
-The 5% daily drawdown limit is HARDCODED at module level.
+The 5% daily drawdown limit is HARDCODED at module level (MAX_DAILY_DRAWDOWN_PCT = 5.0).
 The LLM cannot override, modify, or bypass this value.
 Every trade request is logged to the risk_audit_log table regardless of outcome.
-Uses connection pooling for efficiency under cron load.
+Uses shared connection pool from plugins/shared/db_pool.py.
 """
 
 import os
 import json
 import math
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from db_pool import get_pool
 
 # ╔══════════════════════════════════════════════════════════════════════╗
 # ║  USER CONFIGURED LIMITS — Updated for Benki production             ║
@@ -24,16 +27,10 @@ MAX_OPEN_POSITIONS = 6          # Max 6 concurrent open positions
 MAX_LOSS_PER_TRADE_PCT = 2.0    # Hard stop: max 2% loss per trade (user spec)
 LEVERAGE_MAX_WITHOUT_APPROVAL = 1.0  # No leverage without human approval
 
-# Session-level tracking for pre-trade enforcement
-_risk_check_approved_tokens = set()  # tracks which markets got approval this session
-
-# Connection pool — created lazily on first use
-_db_pool = None
-
-
-def _get_db_url():
-    """Get PostgreSQL connection URL from environment."""
-    return os.environ.get("BENKI_DB_URL", "")
+# Session-level tracking for pre-trade enforcement.
+# Approvals are exact, short-lived, and consumed after one execution call.
+_risk_approvals = {}
+RISK_APPROVAL_TTL_SECONDS = 15 * 60
 
 
 def _parse_numeric(val, default=0.0):
@@ -44,30 +41,27 @@ def _parse_numeric(val, default=0.0):
         return default
 
 
-async def _get_pool():
-    """Get or create the asyncpg connection pool."""
-    global _db_pool
-    if _db_pool is None:
-        db_url = _get_db_url()
-        if not db_url:
-            return None
-        try:
-            import asyncpg
-            _db_pool = await asyncpg.create_pool(
-                db_url,
-                min_size=2,
-                max_size=10,
-                command_timeout=30,
-                server_settings={'application_name': 'benki_risk_manager'}
-            )
-        except Exception:
-            return None
-    return _db_pool
+def _normalize_market(value):
+    """Normalize market identifiers used to bind risk approval to execution."""
+    return str(value or "unknown").strip().lower()
+
+
+def _approval_key(agent, action, execution_market):
+    """Build the exact key used for one-time execution approval."""
+    return (str(agent or "unknown").lower(), str(action or "unknown").lower(), _normalize_market(execution_market))
+
+
+def _cleanup_expired_approvals():
+    """Remove old approvals so a stale risk check cannot authorize later trades."""
+    now = datetime.now(timezone.utc)
+    expired = [key for key, approval in _risk_approvals.items() if approval["expires_at"] <= now]
+    for key in expired:
+        _risk_approvals.pop(key, None)
 
 
 async def _query_db(query, params=None):
-    """Execute a read query against PostgreSQL using the connection pool."""
-    pool = await _get_pool()
+    """Execute a read query against PostgreSQL using the shared connection pool."""
+    pool = await get_pool()
     if not pool:
         return None
     try:
@@ -81,8 +75,8 @@ async def _query_db(query, params=None):
 
 
 async def _execute_db(query, params=None):
-    """Execute a write query against PostgreSQL using the connection pool."""
-    pool = await _get_pool()
+    """Execute a write query against PostgreSQL using the shared connection pool."""
+    pool = await get_pool()
     if not pool:
         return "DB_ERROR: BENKI_DB_URL not set or pool creation failed"
     try:
@@ -185,12 +179,13 @@ async def handle_risk_check(params, **kwargs):
     Check if a trade is allowed under current risk limits.
 
     MANDATORY before every trade/bet execution.
-    The 10% drawdown limit is hardcoded and cannot be overridden.
+    The 5% drawdown limit is hardcoded and cannot be overridden.
     """
     chain = params.get("chain", "unknown")
     action = params.get("action", "unknown")
     amount = _parse_numeric(params.get("amount", 0))
     market = params.get("market", "unknown")
+    execution_market = params.get("execution_market") or params.get("market_id") or params.get("ticker") or market
     agent = params.get("agent", "unknown")
     win_probability = _parse_numeric(params.get("win_probability", 0.5))
     portfolio_value = _parse_numeric(params.get("portfolio_value", 0))
@@ -310,8 +305,18 @@ async def handle_risk_check(params, **kwargs):
                               True, reason, current_drawdown, final_size,
                               remaining_budget if portfolio_value > 0 else 0.0)
 
-    # Track approval for pre-trade enforcement
-    _risk_check_approved_tokens.add(f"{agent}:{market}")
+    # Track exact one-time approval for pre-trade enforcement.
+    _cleanup_expired_approvals()
+    approval = {
+        "agent": str(agent).lower(),
+        "action": str(action).lower(),
+        "market": market,
+        "execution_market": execution_market,
+        "max_amount": round(final_size, 6),
+        "approved_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(seconds=RISK_APPROVAL_TTL_SECONDS),
+    }
+    _risk_approvals[_approval_key(agent, action, execution_market)] = approval
 
     return json.dumps({
         "approved": True,
@@ -332,7 +337,7 @@ def register(ctx):
         "name": "risk_check",
         "description": (
             "MANDATORY pre-trade risk check. Must be called before EVERY trade or bet. "
-            "Enforces a hardcoded 10% daily drawdown circuit breaker and calculates "
+            "Enforces a hardcoded 5% daily drawdown circuit breaker and calculates "
             "Kelly Criterion position sizes. Returns approval status with reasoning. "
             "For prediction markets, set trade_type='prediction' and entry_price to the "
             "market probability you are buying at. For spot trades, set trade_type='spot' "
@@ -347,7 +352,7 @@ def register(ctx):
                 },
                 "chain": {
                     "type": "string",
-                    "description": "Blockchain: 'solana' or 'polygon'"
+                    "description": "Execution venue: 'robinhood_mcp' or 'kalshi'"
                 },
                 "action": {
                     "type": "string",
@@ -359,7 +364,7 @@ def register(ctx):
                 },
                 "market": {
                     "type": "string",
-                    "description": "Market name or token pair (e.g., 'SOL/USDC', 'Will BTC hit 100k?')"
+                    "description": "Market name or symbol (e.g., 'HOOD', 'Will BTC hit 100k?')"
                 },
                 "win_probability": {
                     "type": "number",
@@ -376,6 +381,14 @@ def register(ctx):
                 "entry_price": {
                     "type": "number",
                     "description": "For prediction markets: the market probability/price you are buying at (0.0-1.0)."
+                },
+                "execution_market": {
+                    "type": "string",
+                    "description": "Exact identifier the execution tool will use, e.g. Robinhood symbol or Kalshi ticker. Used to bind approval to a specific order."
+                },
+                "market_id": {
+                    "type": "string",
+                    "description": "Alias for execution_market, commonly used for Kalshi tickers."
                 },
                 "tp_pct": {
                     "type": "number",
@@ -398,21 +411,57 @@ def register(ctx):
         Enforce that risk_check was called before any trade execution tool.
         Returns an error dict to block execution, or None to allow.
         """
-        trade_tools = {"solana_swap", "evm_swap", "polymarket_order", "drift_bet_order"}
+        trade_tools = {"robinhood_mcp_order", "kalshi_order"}
         if tool_name in trade_tools:
-            market = params.get("market", params.get("market_id", "unknown"))
-            # Check if ANY risk_check approval exists in this session
-            if not _risk_check_approved_tokens:
-                print(f"[risk-manager] 🛑 BLOCKED: '{tool_name}' called without "
-                      f"ANY prior risk_check approval in this session.")
-                return json.dumps({
-                    "error": f"BLOCKED: You must call risk_check before {tool_name}. "
-                             f"No trade execution is allowed without risk manager approval.",
-                    "status": "blocked"
-                })
+            _cleanup_expired_approvals()
+
+            if tool_name == "robinhood_mcp_order":
+                agent = "trader"
+                market = params.get("symbol") or params.get("asset") or params.get("market") or "unknown"
+                actions = [str(params.get("action", "buy")).lower()]
             else:
-                print(f"[risk-manager] ✅ Trade tool '{tool_name}' proceeding — "
-                      f"risk_check was called this session.")
+                agent = "predictor"
+                market = params.get("execution_market") or params.get("market_id") or params.get("ticker") or params.get("market") or "unknown"
+                side = str(params.get("side") or params.get("outcome") or "yes").lower()
+                order_action = str(params.get("action", "buy")).lower()
+                if order_action == "sell":
+                    actions = ["sell_bet", "sell"]
+                else:
+                    actions = [f"bet_{side}"]
+
+            approval = None
+            approval_key = None
+            for action in actions:
+                key = _approval_key(agent, action, market)
+                if key in _risk_approvals:
+                    approval = _risk_approvals[key]
+                    approval_key = key
+                    break
+
+            if not approval:
+                print(f"[risk-manager] 🛑 BLOCKED: '{tool_name}' called without matching risk_check approval "
+                      f"for agent={agent}, market={market}, actions={actions}.")
+                return json.dumps({
+                    "error": f"BLOCKED: You must call risk_check for the exact {tool_name} order before execution.",
+                    "status": "blocked",
+                    "agent": agent,
+                    "market": market,
+                    "expected_actions": actions,
+                })
+
+            requested_amount = _parse_numeric(params.get("amount", 0))
+            if requested_amount > approval["max_amount"] + 1e-9:
+                print(f"[risk-manager] 🛑 BLOCKED: '{tool_name}' amount ${requested_amount:.2f} exceeds "
+                      f"approved ${approval['max_amount']:.2f}.")
+                return json.dumps({
+                    "error": "BLOCKED: execution amount exceeds risk-approved position size.",
+                    "status": "blocked",
+                    "approved_amount": approval["max_amount"],
+                    "requested_amount": requested_amount,
+                })
+
+            _risk_approvals.pop(approval_key, None)
+            print(f"[risk-manager] ✅ Trade tool '{tool_name}' proceeding — exact risk approval consumed.")
         return None  # allow the call
 
     # Register as pre_tool_call hook if available, else post_tool_call
@@ -421,7 +470,7 @@ def register(ctx):
     except Exception:
         # Fallback: post-call audit logging
         def on_tool_call(tool_name, params, result):
-            trade_tools = {"solana_swap", "evm_swap", "polymarket_order", "drift_bet_order"}
+            trade_tools = {"robinhood_mcp_order", "kalshi_order"}
             if tool_name in trade_tools:
                 print(f"[risk-manager] ⚠️  Trade tool '{tool_name}' was called. "
                       f"Ensure risk_check was called first.")

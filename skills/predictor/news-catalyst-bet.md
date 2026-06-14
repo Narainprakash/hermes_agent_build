@@ -5,7 +5,7 @@ description: Identify prediction markets that are temporarily mispriced due to a
 
 # News Catalyst Bet Procedure
 
-Breaking news often causes Polymarket odds to overshoot or undershoot their
+Breaking news often causes Kalshi odds to overshoot or undershoot their
 true probability. This skill systematically finds and trades those mispricings
 within the first 2-4 hours of a catalyst event.
 
@@ -24,15 +24,15 @@ From the MCB or via search_news:
 - Categories to watch: Fed statements, geopolitical escalation/de-escalation,
   regulatory rulings, major token launches, protocol hacks, ETF approvals
 
-## Step 2: Find Related Polymarket Markets
-Call get_polymarket_markets with queries related to the catalyst.
+## Step 2: Find Related Kalshi Markets
+Call get_kalshi_markets with queries related to the catalyst.
 Examples:
 - Fed announcement → search "Fed rate", "FOMC", "Powell"
 - Geopolitical → search "ceasefire", "sanctions", "oil price"
 - Crypto regulatory → search "SEC", "ETF", "CFTC"
 - Protocol event → search token name + "hack", "upgrade", "listing"
 
-Also call drift_bet_search with same queries (min_volume: 5000 — even smaller markets matter here).
+Do not use any non-Kalshi prediction venue; prediction market execution is Kalshi-only.
 
 ## Step 3: Assess the Overshoot/Undershoot
 
@@ -85,7 +85,7 @@ Apply: `adjusted_amount = base_amount × size_multiplier`
 
 ## Step 6: Risk Check and Execute
 - Call risk_check with portfolio_value (from benki_db_daily_pnl or $1000 fallback)
-- If approved, execute via polymarket_order or drift_bet_order
+- If approved, execute via kalshi_order
 - Log to benki_db_log_trade
 
 ## Step 7: Set Resolution Alert
@@ -107,7 +107,7 @@ Report format MUST BE STRICT JSON fenced in ```json:
   "report": "BET_RESULT",
   "directive_ref": "BET_NOW",
   "market": "[question]",
-  "platform": "[polymarket/drift_bet]",
+  "platform": "kalshi",
   "position": "[yes/no]",
   "status": "[placed|dry_run|rejected|below_edge]",
   "amount": [amount],
@@ -124,6 +124,6 @@ Report format MUST BE STRICT JSON fenced in ```json:
 
 ## Anti-patterns to Avoid
 - Do NOT bet on markets resolving in >90 days unless edge is >20%
-- Do NOT bet on markets with <$5k volume on Drift BET (liquidity risk)
+- Do NOT bet on markets with insufficient Kalshi liquidity
 - Do NOT bet against scientific consensus (climate, vaccine efficacy) — base rates are clear
 - Do NOT double down after a loss on the same market — one bet per market per catalyst

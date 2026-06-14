@@ -2,16 +2,16 @@
 Benki Market Fetch Plugin
 ==========================
 Async HTTP market data fetcher — NO API KEY REQUIRED.
-Uses free public endpoints: CoinGecko, Polymarket Gamma, DuckDuckGo.
+Uses free public endpoints: CoinGecko, Kalshi public markets, DuckDuckGo.
 
 This plugin gives the orchestrator live internet access for:
   - Crypto prices (CoinGecko free tier, no key)
-  - Polymarket prediction market data (public Gamma API)
+    - Kalshi prediction market data (public markets API)
   - DuckDuckGo instant answers for general crypto news
   - Generic URL fetch for any public JSON endpoint
 
 All endpoints confirmed reachable from the Docker container.
-Uses aiohttp for non-blocking async I/O.
+Uses aiohttp for non-blocking async I/O with connection pooling.
 """
 
 import json
@@ -24,22 +24,33 @@ from datetime import datetime, timezone
 _SSL_CTX = ssl.create_default_context()
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; BenkiBot/1.0)"}
 
+# Shared session for connection reuse
+_session = None
+
+
+async def _get_session():
+    """Get or create a shared aiohttp session."""
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession(headers=_HEADERS)
+    return _session
+
 
 async def _fetch(url: str, timeout: int = 10) -> dict:
     """Async HTTP GET → parsed JSON dict. Raises on error."""
-    async with aiohttp.ClientSession(headers=_HEADERS) as session:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout), ssl=_SSL_CTX) as resp:
-            resp.raise_for_status()
-            text = await resp.text()
-            return json.loads(text)
+    session = await _get_session()
+    async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout), ssl=_SSL_CTX) as resp:
+        resp.raise_for_status()
+        text = await resp.text()
+        return json.loads(text)
 
 
 async def _fetch_text(url: str, timeout: int = 10) -> str:
     """Async HTTP GET → text string."""
-    async with aiohttp.ClientSession(headers=_HEADERS) as session:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout), ssl=_SSL_CTX) as resp:
-            resp.raise_for_status()
-            return await resp.text()
+    session = await _get_session()
+    async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout), ssl=_SSL_CTX) as resp:
+        resp.raise_for_status()
+        return await resp.text()
 
 async def handle_get_funding_rates(params, **kwargs):
     """Fetch funding rates from Binance (may be blocked in some regions)."""
@@ -66,17 +77,16 @@ async def handle_get_crypto_prices(params, **kwargs):
     Fetch live crypto prices from CoinGecko (free, no API key).
     Returns price in USD, 24h change, market cap, volume.
     """
-    coins = params.get("coins", ["bitcoin", "ethereum", "solana", "matic-network"])
+    coins = params.get("coins", ["bitcoin", "ethereum"])
     if isinstance(coins, str):
         coins = [c.strip() for c in coins.split(",")]
 
     # Normalise common ticker symbols → CoinGecko IDs
     symbol_map = {
-        "btc": "bitcoin", "eth": "ethereum", "sol": "solana",
-        "matic": "matic-network", "pol": "matic-network",
-        "usdc": "usd-coin", "usdt": "tether",
+        "btc": "bitcoin", "eth": "ethereum",
+        "usdt": "tether",
         "bnb": "binancecoin", "avax": "avalanche-2",
-        "link": "chainlink", "uni": "uniswap", "arb": "arbitrum",
+        "link": "chainlink", "arb": "arbitrum",
         "op": "optimism", "doge": "dogecoin", "pepe": "pepe",
     }
     resolved = [symbol_map.get(c.lower(), c.lower()) for c in coins]
@@ -106,67 +116,60 @@ async def handle_get_crypto_prices(params, **kwargs):
         return json.dumps({"error": str(e), "url": url})
 
 
-async def handle_get_polymarket_markets(params, **kwargs):
+async def handle_get_kalshi_markets(params, **kwargs):
     """
-    Fetch active Polymarket prediction markets from the free Gamma API.
+    Fetch active Kalshi prediction markets from the public markets API.
     Returns top markets by volume with current odds.
     No API key required.
     """
     query = params.get("query", "")
     limit = int(params.get("limit", 15))
     min_volume = float(params.get("min_volume", 10000))
-    category = params.get("category", "")  # e.g. "crypto", "politics"
+    series_ticker = params.get("series_ticker", "")
 
     try:
-        # Polymarket Gamma public API — no auth needed
+        # Kalshi public markets API — no auth needed for discovery
         api_params = {
-            "limit": min(limit * 3, 50),  # fetch extra to filter by volume
-            "active": "true",
-            "closed": "false",
-            "order": "volume24hr",
-            "ascending": "false",
+            "limit": min(max(limit * 3, limit), 1000),
+            "status": "open",
         }
-        if category:
-            api_params["tag"] = category
+        if series_ticker:
+            api_params["series_ticker"] = series_ticker
 
         import urllib.parse
         qs = urllib.parse.urlencode(api_params)
-        url = f"https://gamma-api.polymarket.com/markets?{qs}"
-        markets_raw = await _fetch(url)
+        url = f"https://external-api.kalshi.com/trade-api/v2/markets?{qs}"
+        response = await _fetch(url)
+        markets_raw = response.get("markets", [])
 
         filtered = []
         for m in markets_raw:
-            vol = float(m.get("volume24hr") or m.get("volume") or 0)
-            question = m.get("question", "")
+            vol = float(m.get("volume_24h_fp") or m.get("volume_fp") or 0)
+            question = m.get("title") or m.get("subtitle") or m.get("ticker", "")
             if vol >= min_volume:  # FIXED: was > (excluded valid markets)
                 if query and query.lower() not in question.lower():
                     continue
 
-                try:
-                    prices = json.loads(m.get("outcomePrices", "[]"))
-                    outcomes = json.loads(m.get("outcomes", "[]"))
-                except Exception:
-                    prices = []
-                    outcomes = []
-
-                odds = {}
-                for i, outcome in enumerate(outcomes):
-                    try:
-                        p = float(prices[i])
-                        odds[outcome] = {"probability": round(p, 4), "implied_pct": round(p * 100, 1)}
-                    except Exception:
-                        pass
+                yes_ask = float(m.get("yes_ask_dollars") or m.get("last_price_dollars") or 0)
+                yes_bid = float(m.get("yes_bid_dollars") or yes_ask or 0)
+                no_ask = float(m.get("no_ask_dollars") or max(0.0, 1.0 - yes_bid))
+                no_bid = float(m.get("no_bid_dollars") or max(0.0, 1.0 - yes_ask))
+                odds = {
+                    "Yes": {"bid": round(yes_bid, 4), "ask": round(yes_ask, 4), "probability": round(yes_ask, 4)},
+                    "No": {"bid": round(no_bid, 4), "ask": round(no_ask, 4), "probability": round(no_ask, 4)},
+                }
 
                 filtered.append({
-                    "id": m.get("id"),
+                    "id": m.get("ticker"),
+                    "ticker": m.get("ticker"),
+                    "event_ticker": m.get("event_ticker"),
                     "question": question,
                     "volume_24h": round(vol, 0),
-                    "total_volume": float(m.get("volume") or 0),
-                    "liquidity": float(m.get("liquidity") or 0),
-                    "end_date": m.get("endDate", ""),
+                    "total_volume": float(m.get("volume_fp") or 0),
+                    "liquidity": float(m.get("liquidity_dollars") or 0),
+                    "end_date": m.get("close_time") or m.get("expiration_time", ""),
                     "odds": odds,
-                    "slug": m.get("slug", ""),
-                    "url": f"https://polymarket.com/event/{m.get('slug', m.get('id', ''))}",
+                    "url": f"https://kalshi.com/markets/{m.get('ticker', '')}",
                 })
 
                 if len(filtered) >= limit:
@@ -176,7 +179,7 @@ async def handle_get_polymarket_markets(params, **kwargs):
             "markets": filtered,
             "count": len(filtered),
             "fetched_at": datetime.now(timezone.utc).isoformat(),
-            "source": "gamma-api.polymarket.com (public)",
+            "source": "external-api.kalshi.com/trade-api/v2/markets",
         })
     except Exception as e:
         return json.dumps({"error": str(e)})
@@ -278,7 +281,7 @@ def register(ctx):
         "description": (
             "Fetch live cryptocurrency prices from CoinGecko. "
             "No API key required. Returns USD price, 24h % change, market cap, volume. "
-            "Use coin IDs (bitcoin, ethereum, solana) or common symbols (BTC, ETH, SOL)."
+            "Use coin IDs (bitcoin, ethereum) or common symbols (BTC, ETH)."
         ),
         "parameters": {
             "type": "object",
@@ -292,12 +295,12 @@ def register(ctx):
         }
     }, handle_get_crypto_prices)
 
-    ctx.register_tool("get_polymarket_markets", "benki_market", {
-        "name": "get_polymarket_markets",
+    ctx.register_tool("get_kalshi_markets", "benki_market", {
+        "name": "get_kalshi_markets",
         "description": (
-            "Fetch active Polymarket prediction markets with live odds. "
-            "No API key required. Returns top markets by 24h volume. "
-            "Filter by query string or category (e.g. 'crypto', 'politics')."
+            "Fetch active Kalshi prediction markets with live odds. "
+            "No API key required for discovery. Returns top markets by 24h volume. "
+            "Filter by query string or optional series ticker."
         ),
         "parameters": {
             "type": "object",
@@ -314,13 +317,13 @@ def register(ctx):
                     "type": "number",
                     "description": "Minimum 24h volume in USD (default: 10000)"
                 },
-                "category": {
+                "series_ticker": {
                     "type": "string",
-                    "description": "Category tag filter (e.g. 'crypto', 'politics', 'sports')"
+                    "description": "Optional Kalshi series ticker filter"
                 }
             }
         }
-    }, handle_get_polymarket_markets)
+    }, handle_get_kalshi_markets)
 
     ctx.register_tool("search_news", "benki_market", {
         "name": "search_news",

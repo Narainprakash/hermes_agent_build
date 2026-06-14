@@ -1,0 +1,6 @@
+name: kalshi-client
+version: "1.0"
+description: "Kalshi API client for prediction market discovery and order placement."
+requires_env:
+  - KALSHI_API_KEY_ID
+  - KALSHI_PRIVATE_KEY_PATH

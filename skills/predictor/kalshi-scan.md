@@ -1,6 +1,6 @@
 ---
-name: polymarket-scan
-description: Scan BOTH Polymarket and Drift BET for high-value prediction market opportunities. Evaluate edge rigorously. Track calibration.
+name: kalshi-scan
+description: Scan Kalshi for high-value prediction market opportunities. Evaluate edge rigorously. Track calibration.
 ---
 
 # Prediction Market Scan Procedure (v3 — improved)
@@ -11,21 +11,15 @@ Before proceeding, check if prediction markets are enabled:
 - If `FEATURE_PREDICTIONS` is NOT "true" or is unset/empty:
   - **STOP IMMEDIATELY.** Do not proceed with any steps below.
   - Post in #predictor: "Prediction markets disabled by FEATURE_PREDICTIONS toggle. Scan skipped."
-  - Log: `benki_db_log_cron(agent="predictor", cron_name="polymarket-scan", status="skipped", details="FEATURE_PREDICTIONS=false")`
+  - Log: `benki_db_log_cron(agent="predictor", cron_name="kalshi-scan", status="skipped", details="FEATURE_PREDICTIONS=false")`
   - Exit this skill.
 
-## Step 1: Dual-Platform Discovery
-Run BOTH platforms in parallel:
+## Step 1: Kalshi Discovery
+Scan Kalshi markets:
 
-**Polymarket:**
-Call get_polymarket_markets with min_volume=50000, limit=20
+Call get_kalshi_markets with min_volume=50000, limit=20
 Categories to prioritize: crypto, politics, economics, geopolitics
-
-**Drift BET:**
-Call drift_bet_search with min_volume=10000, limit=20
-Note: LOWER threshold = MORE opportunities. Drift BET is systematically under-scanned.
-
-Combine both lists. Remove any market you already have an open position in.
+Remove any market you already have an open position in.
 
 ## Step 2: Quick Filter (remove obvious pass-throughs)
 Skip any market where:
@@ -101,7 +95,7 @@ For each market with sufficient edge:
    Fallback: $1000 if DB unavailable
 2. Call risk_check with:
    - agent: "predictor"
-   - chain: "polygon" (Polymarket) or "solana" (Drift BET)
+  - chain: "kalshi"
    - action: "bet_yes" or "bet_no"
    - amount: [calculated from edge tier above]
    - market: [market question]
@@ -113,12 +107,11 @@ For each market with sufficient edge:
 **If REJECTED:** Log rejection, do NOT retry.
 
 ## Step 7: Execute
-- Polymarket: call polymarket_order with market_id, outcome, amount, price=my_probability
-- Drift BET: call drift_bet_order with market_id, outcome, amount
+- Call kalshi_order with ticker/market_id, side/outcome, amount, price=my_probability
 
 ## Step 8: Log and Record
 1. Call benki_db_log_trade:
-   - platform: "polymarket" or "drift_bet"
+  - platform: "kalshi"
    - action: "bet_yes" or "bet_no"
    - market: question text
    - amount: position size
@@ -148,7 +141,7 @@ Report format MUST BE STRICT JSON fenced in ```json:
   "report": "BET_RESULT",
   "directive_ref": "BET_NOW",
   "market": "[question]",
-  "platform": "[polymarket/drift_bet]",
+  "platform": "kalshi",
   "position": "[yes/no]",
   "status": "[placed|dry_run|rejected|below_edge]",
   "amount": [amount],
@@ -164,7 +157,7 @@ Report format MUST BE STRICT JSON fenced in ```json:
 
 At the end of the scan, you can post a summary:
 🔮 **Prediction Scan Summary** — [timestamp]
-**Markets scanned:** [Polymarket: X | Drift BET: Y]
+**Markets scanned:** [Kalshi: X]
 **Bets placed:** [count]
 **Skipped (below edge):** [count]
 **Best edge found:** [X.X% on "market question"]

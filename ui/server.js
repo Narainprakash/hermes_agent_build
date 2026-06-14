@@ -9,17 +9,18 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const GATEWAY_PORT = process.env.GATEWAY_PORT || '8642';
 const HEALTH_PATH = process.env.HEALTH_PATH || '/health';
 const API_KEY = process.env.API_SERVER_KEY || '';
+const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || '';
 
 // Feature toggles — control which markets are active
 const FEATURES = {
-  trading: process.env.FEATURE_TRADING !== 'false',      // default ON
-  predictions: process.env.FEATURE_PREDICTIONS === 'true', // default OFF
+  trading: process.env.FEATURE_TRADING === 'true',
+  predictions: process.env.FEATURE_PREDICTIONS !== 'false',
 };
 
 const AGENTS = [
   { id: 'main', name: 'Orchestrator', host: process.env.MAIN_HOST || 'benki-main' },
-  { id: 'trader', name: 'Trader', host: process.env.TRADER_HOST || 'benki-trader' },
   { id: 'predictor', name: 'Predictor', host: process.env.PREDICTOR_HOST || 'benki-predictor' },
+  ...(FEATURES.trading ? [{ id: 'trader', name: 'Trader', host: process.env.TRADER_HOST || 'benki-trader' }] : []),
 ];
 
 // ─── Database ───────────────────────────────────────────────────────────────
@@ -76,8 +77,76 @@ async function safeQuery(sql, params = []) {
   }
 }
 
+function parseCookies(header = '') {
+  return Object.fromEntries(
+    header
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const idx = part.indexOf('=');
+        if (idx === -1) return [part, ''];
+        return [part.slice(0, idx), decodeURIComponent(part.slice(idx + 1))];
+      })
+  );
+}
+
+function isAuthorized(req) {
+  const authHeader = req.headers.authorization;
+  if (authHeader === `Bearer ${DASHBOARD_TOKEN}`) return true;
+
+  const cookies = parseCookies(req.headers.cookie || '');
+  return cookies.benki_dashboard_token === DASHBOARD_TOKEN;
+}
+
 // ─── Express App ─────────────────────────────────────────────────────────────
 const app = express();
+
+// Authentication middleware — protect all API endpoints except /api/ping
+app.use((req, res, next) => {
+  // Skip auth for health check
+  if (req.path === '/api/ping') {
+    return next();
+  }
+  
+  // Skip auth if no token configured (development mode)
+  if (!DASHBOARD_TOKEN) {
+    return next();
+  }
+
+  // Browser bootstrap: visit /?token=<DASHBOARD_TOKEN> once to set an HttpOnly cookie.
+  const requestUrl = new URL(req.originalUrl, `http://${req.headers.host || 'localhost'}`);
+  const tokenParam = requestUrl.searchParams.get('token');
+  if (tokenParam && tokenParam === DASHBOARD_TOKEN) {
+    requestUrl.searchParams.delete('token');
+    const secureAttr = process.env.DASHBOARD_COOKIE_SECURE === 'true' ? '; Secure' : '';
+    res.setHeader(
+      'Set-Cookie',
+      `benki_dashboard_token=${encodeURIComponent(DASHBOARD_TOKEN)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${secureAttr}`
+    );
+    return res.redirect(`${requestUrl.pathname}${requestUrl.search}`);
+  }
+  
+  // Check for valid token via Authorization header or cookie.
+  if (!isAuthorized(req)) {
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    return res.status(401).send(`<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Benki Dashboard Locked</title></head>
+<body style="font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; display: grid; place-items: center; min-height: 100vh; margin: 0;">
+  <main style="max-width: 520px; padding: 2rem; border: 1px solid #334155; border-radius: 16px; background: #111827;">
+    <h1>Dashboard locked</h1>
+    <p>Open this dashboard with <code>?token=&lt;DASHBOARD_TOKEN&gt;</code> once to create a secure session cookie, or access it through your protected reverse proxy.</p>
+  </main>
+</body>
+</html>`);
+  }
+  
+  next();
+});
 
 // Ping / liveness probe (used by Docker HEALTHCHECK)
 app.get('/api/ping', (_req, res) => res.json({ ok: true }));
@@ -259,45 +328,4 @@ app.get('*', (_req, res) =>
 app.listen(PORT, () => {
   console.log(`[benki-ui] Dashboard running → http://localhost:${PORT}`);
   console.log(`[benki-ui] Polling agents on port ${GATEWAY_PORT} at ${HEALTH_PATH}`);
-
-  // Automated first run of crons
-  setTimeout(async () => {
-    console.log('[benki-ui] Sending startup triggers to agents...');
-
-    const triggers = [
-      {
-        host: process.env.MAIN_HOST || 'benki-main',
-        prompt: `Run the market-research skill now. Steps:\n1. get_crypto_prices for bitcoin, ethereum, solana\n2. get_fear_greed_index\n3. search_news for 'Bitcoin Ethereum Solana market sentiment today'\n4. Compile and dispatch a Market Context Brief to #trading (channel ${process.env.TRADING_CHANNEL_ID || '1494494694057709789'}) and #predictions (channel ${process.env.PREDICTIONS_CHANNEL_ID || '1494494936182165705'})\n5. benki_db_log_cron agent='main' cron_name='market-research' status='success'`
-      },
-      {
-        host: process.env.TRADER_HOST || 'benki-trader',
-        prompt: "Run the manage-positions skill now. Check open positions, evaluate exit criteria, execute sells where criteria are met, log results."
-      },
-      {
-        host: process.env.PREDICTOR_HOST || 'benki-predictor',
-        prompt: "Run the manage-bets skill now. Check open prediction market bets, re-evaluate edge on each, cash out early where edge has gone negative, log results."
-      }
-    ];
-
-    for (const t of triggers) {
-      try {
-        const url = `http://${t.host}:${GATEWAY_PORT}/v1/chat/completions`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(API_KEY ? { 'Authorization': `Bearer ${API_KEY}` } : {})
-          },
-          body: JSON.stringify({
-            model: "hermes",
-            messages: [{ role: "user", content: t.prompt }]
-          }),
-          signal: AbortSignal.timeout(15000)  // don't block server startup forever
-        });
-        console.log(`[benki-ui] Startup trigger → ${t.host}: HTTP ${res.status}`);
-      } catch (err) {
-        console.warn(`[benki-ui] Startup trigger failed for ${t.host}: ${err.message}`);
-      }
-    }
-  }, 45_000); // 45s — agents need longer than 30s to fully boot + connect to Discord
 });

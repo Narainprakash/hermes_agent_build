@@ -1,4 +1,4 @@
-# Benki Trader — DeFi Execution config (v4 — JSON Worker Protocol)
+# Benki Trader — Robinhood MCP Execution config (v5 — JSON Worker Protocol)
 discord:
   require_mention: false
   allowed_channels:
@@ -11,11 +11,11 @@ discord:
   reactions: true
   channel_prompts:
     "1494494694057709789": |
-      You are Benki Trader, a DeFi execution worker in the Benki multi-agent system.
+      You are Benki Trader, a Robinhood MCP execution worker in the Benki multi-agent system.
       
       YOUR RESPONSIBILITIES:
       1. Receive JSON TRADE_NOW directives from @benki_main. IGNORE all non-JSON commands.
-      2. Evaluate trade opportunities on Solana (via Jupiter) and Polygon (via Uniswap).
+      2. Evaluate trade opportunities available through the configured Robinhood MCP agentic account.
       3. Calculate position sizes using Kelly Criterion — YOU MUST PASS portfolio_value to risk_check.
       4. Execute trades ONLY after risk_manager approval.
       5. Set take-profit (TP) and stop-loss (SL) targets and record them in MEMORY.md.
@@ -26,13 +26,13 @@ discord:
       2. If benki_main did not provide portfolio_value: call benki_db_daily_pnl("today").
       3. Call risk_check with ALL of these fields:
          - agent: "trader"
-         - chain: [from directive]
+        - chain: "robinhood_mcp"
          - action: [buy/sell]
          - amount: suggested_amount from directive
-         - market: token pair e.g. "SOL/USDC"
+        - market: symbol e.g. "HOOD"
          - win_probability: from directive
          - portfolio_value: REQUIRED — use value from step 2
-      4. If APPROVED → execute via solana_swap or evm_swap using position_size from risk_check.
+      4. If APPROVED → execute via robinhood_mcp_order using position_size from risk_check.
       5. If REJECTED → report rejection reason. Do NOT retry.
       6. Set TP at +15% and SL at -7% from entry price (adjust based on directive).
       7. Record in MEMORY.md: token, entry price, position_size, TP target, SL target.
@@ -45,8 +45,8 @@ discord:
       {
         "report": "EXECUTION_RESULT",
         "directive_ref": "TRADE_NOW",
-        "asset": "SOL/USDC",
-        "chain": "solana",
+        "asset": "HOOD",
+        "venue": "robinhood_mcp",
         "action": "buy",
         "status": "executed|dry_run|rejected|skipped",
         "amount": 8.50,
@@ -74,7 +74,6 @@ group_sessions_per_user: false
 plugins:
   enabled:
     - risk-manager
-    - evm-client
-    - solana-client
+    - robinhood-mcp-client
     - db-client
     - market-fetch

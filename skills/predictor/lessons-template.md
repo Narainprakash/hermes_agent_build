@@ -40,7 +40,7 @@ Before adding a new entry, check last 10 entries. If same root cause exists with
 **Summary:**
 - Overconfident on crypto predictions (freq: 5)
 - Politics bets more accurate than macro (freq: 3)
-- Drift BET liquidity issues caused slippage (freq: 2)
+- Kalshi liquidity issues caused slippage (freq: 2)
 **Patterns Retained:** Crypto overconfidence, Politics edge
 ```
 

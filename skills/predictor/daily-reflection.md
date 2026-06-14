@@ -16,7 +16,7 @@ Before proceeding, check if prediction markets are enabled:
 
 ## Step 1: Review Today's Predictions
 - Call `benki_db_query_trades` with agent="predictor" for today
-- List all bets placed (Polymarket + Drift BET)
+- List all bets placed on Kalshi
 - Note edge at time of entry, platform, and current status
 
 ## Step 2: Check Resolved Markets
@@ -50,9 +50,8 @@ Position size modifier: [standard/+25%/-50%/ZERO]
 
 ## Step 4: Platform Performance Breakdown
 Analyze separately for each platform:
-- Polymarket: avg edge, win rate, Brier score
-- Drift BET: avg edge, win rate, Brier score
-- If one platform Brier > 0.25 while the other < 0.15: focus on the better platform
+- Kalshi: avg edge, win rate, Brier score
+- If Kalshi Brier > 0.25: pause betting and request strategy review
 
 ## Step 5: Edge Quality Analysis
 - Were your highest-edge bets (>15%) more accurate than low-edge (5-10%)?

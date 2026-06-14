@@ -2,6 +2,6 @@ schedule: "0 * * * *"
 prompt: |
   CRON TRIGGER: 1-Hour Position Management
 
-  It is time to review open crypto positions and execute sells if necessary.
+  It is time to review open Robinhood MCP positions and execute sells if necessary.
   Please run your `manage-positions` procedure.
   After completing the procedure, call benki_db_log_cron with agent="trader", cron_name="manage-positions", status="success" to record that this cron cycle ran successfully.

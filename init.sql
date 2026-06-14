@@ -8,8 +8,8 @@ CREATE TABLE trades (
     id              SERIAL PRIMARY KEY,
     agent           TEXT NOT NULL,                   -- 'trader' or 'predictor'
     timestamp       TIMESTAMPTZ DEFAULT NOW(),
-    chain           TEXT NOT NULL,                   -- 'solana', 'polygon'
-    platform        TEXT,                            -- 'jupiter', 'polymarket', 'drift_bet', 'uniswap'
+    chain           TEXT NOT NULL,                   -- 'robinhood_mcp', 'kalshi'
+    platform        TEXT,                            -- 'robinhood_mcp', 'kalshi'
     action          TEXT NOT NULL,                   -- 'buy', 'sell', 'bet_yes', 'bet_no'
     market          TEXT,                            -- market name / token pair
     amount          NUMERIC,
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS predictions (
     id                  SERIAL PRIMARY KEY,
     agent               TEXT NOT NULL DEFAULT 'predictor',
     timestamp           TIMESTAMPTZ DEFAULT NOW(),
-    platform            TEXT NOT NULL,                   -- 'polymarket' or 'drift_bet'
+    platform            TEXT NOT NULL,                   -- 'kalshi'
     market_id           TEXT,
     market_question     TEXT NOT NULL,
     position            TEXT NOT NULL,                   -- 'yes' or 'no'
@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS predictions (
 CREATE INDEX idx_predictions_status ON predictions(status);
 CREATE INDEX idx_predictions_platform ON predictions(platform);
 CREATE INDEX idx_predictions_timestamp ON predictions(timestamp);
+CREATE INDEX idx_predictions_market_id ON predictions(market_id);
 
 -- Commander-Worker directive tracking
 CREATE TABLE IF NOT EXISTS agent_commands (
@@ -122,6 +123,7 @@ CREATE TABLE IF NOT EXISTS agent_commands (
 
 CREATE INDEX idx_agent_commands_worker ON agent_commands(worker);
 CREATE INDEX idx_agent_commands_status ON agent_commands(response_status);
+CREATE INDEX idx_agent_commands_timestamp ON agent_commands(timestamp);
 
 -- Growth target tracking
 CREATE TABLE IF NOT EXISTS growth_targets (
@@ -139,3 +141,18 @@ CREATE TABLE IF NOT EXISTS growth_targets (
 INSERT INTO daily_pnl (date, starting_balance_usd, ending_balance_usd, realized_pnl, unrealized_pnl, drawdown_pct, max_drawdown_pct)
 VALUES (CURRENT_DATE, 200, 200, 0, 0, 0, 0)
 ON CONFLICT DO NOTHING;
+
+-- Create read-only user for dashboard
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'benki_readonly') THEN
+        CREATE ROLE benki_readonly WITH LOGIN PASSWORD 'benki_readonly_password';
+    END IF;
+END
+$$;
+
+-- Grant read-only permissions
+GRANT CONNECT ON DATABASE benki TO benki_readonly;
+GRANT USAGE ON SCHEMA public TO benki_readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO benki_readonly;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO benki_readonly;
