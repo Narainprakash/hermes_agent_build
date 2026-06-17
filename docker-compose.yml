@@ -94,7 +94,6 @@ services:
 
   # ─── Benki Trader (DeFi Execution) ──────────────────────────────────
   benki-trader:
-    profiles: ["disabled"]
     image: nousresearch/hermes-agent:latest
     container_name: benki-trader
     restart: unless-stopped
